@@ -44,7 +44,7 @@ static uint32_t s_idle_since_ms = 0;
 static std::deque<std::string> s_console;
 
 // Panel job (file streamed by the panel itself, character-counting flow control)
-static constexpr size_t JOB_RX_BUDGET = 512;  // bytes we let sit in grblHAL's serial buffer
+static constexpr size_t JOB_RX_BUDGET = 480;  // grblHAL build has RX_BUFFER_SIZE=512; keep a margin
 static bool s_job_mode = false;
 static bool s_job_abort = false;
 static std::deque<uint16_t> s_job_lens;  // byte count of each job line awaiting its reply
