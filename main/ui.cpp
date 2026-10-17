@@ -820,6 +820,12 @@ static void build_setup() {
     s_set_content = make_content(scr);
     lv_obj_add_flag(s_set_content, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_scroll_dir(s_set_content, LV_DIR_VER);
+    // Always show the scrollbar so it's obvious there's more below (Save is at the bottom)
+    lv_obj_set_scrollbar_mode(s_set_content, LV_SCROLLBAR_MODE_ON);
+    lv_obj_set_style_bg_color(s_set_content, C(COL_SUB), LV_PART_SCROLLBAR);
+    lv_obj_set_style_bg_opa(s_set_content, LV_OPA_60, LV_PART_SCROLLBAR);
+    lv_obj_set_style_width(s_set_content, 4, LV_PART_SCROLLBAR);
+    lv_obj_set_style_pad_right(s_set_content, 4, LV_PART_SCROLLBAR);
     lv_obj_set_style_pad_bottom(s_set_content, 24, 0);
 
     // Wi-Fi
