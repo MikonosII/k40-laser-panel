@@ -2,11 +2,13 @@
 
 #include <algorithm>
 #include <cstring>
+#include <ctime>
 #include <mutex>
 
 #include "esp_event.h"
 #include "esp_log.h"
 #include "esp_netif.h"
+#include "esp_netif_sntp.h"
 #include "esp_wifi.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -167,6 +169,12 @@ static void server_task(void *) {
 
 void init() {
     ESP_ERROR_CHECK(esp_netif_init());
+    // Clock from the internet, for job history times (works once Wi-Fi is up; retries by itself)
+    setenv("TZ", CONFIG_K40_TIMEZONE, 1);
+    tzset();
+    esp_sntp_config_t sntp = ESP_NETIF_SNTP_DEFAULT_CONFIG("pool.ntp.org");
+    sntp.start = true;
+    esp_netif_sntp_init(&sntp);
     ESP_ERROR_CHECK(esp_event_loop_create_default());
     esp_netif_t *netif = esp_netif_create_default_wifi_sta();
     esp_netif_set_hostname(netif, CONFIG_K40_HOSTNAME);

@@ -3,6 +3,7 @@
 #include "display.hpp"
 #include "esp_log.h"
 #include "grbl_link.hpp"
+#include "history.hpp"
 #include "jobs.hpp"
 #include "ma_sensor.hpp"
 #include "net_bridge.hpp"
@@ -21,6 +22,7 @@ extern "C" void app_main(void) {
     }
 
     settings::init();
+    history::init();
     board::init();
     display::init();
     sd_update::run();  // firmware.bin check, before anything else uses the card

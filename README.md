@@ -285,6 +285,11 @@ now. Travel moves aren't drawn. Big photo engravings take a few seconds to draw.
 picked, the Status screen shows the 300 x 200 mm bed instead. The picture uses Y up, like
 LightBurn's default view.
 
+**History:** the Jobs screen's **History** button lists the last 20 jobs, panel or LightBurn,
+with date and time, run time, peak tube current (with the sensor fitted) and how each ended. It
+survives restarts. The clock comes from the internet once Wi-Fi is up; the time zone is
+*menuconfig → K40 panel → Time zone* (US Central by default).
+
 **While a panel job runs:**
 - The panel feeds grblHAL itself, so a Wi-Fi drop or a sleeping PC doesn't affect the job.
 - **Pause / Resume / Stop** work from the Jobs or Status screen. Stop soft-resets grblHAL (laser

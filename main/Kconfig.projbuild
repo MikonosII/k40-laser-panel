@@ -10,6 +10,13 @@ menu "K40 panel"
         config K40_HOSTNAME
             string "Network hostname"
             default "k40-panel"
+        config K40_TIMEZONE
+            string "Time zone (POSIX TZ) for job history times"
+            default "CST6CDT,M3.2.0,M11.1.0"
+            help
+                The panel sets its clock from the internet (pool.ntp.org) once Wi-Fi is up.
+                US Central is the default; Eastern is EST5EDT,M3.2.0,M11.1.0,
+                Pacific is PST8PDT,M3.2.0,M11.1.0.
         config K40_TELNET_PORT
             int "LightBurn TCP port"
             default 23

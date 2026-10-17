@@ -13,6 +13,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "grbl_link.hpp"
+#include "history.hpp"
 #include "jobs.hpp"
 #include "ma_sensor.hpp"
 #include "lvgl.h"
@@ -79,7 +80,9 @@ static lv_obj_t *s_exh_lbl;
 static lv_timer_t *s_arm_timer;
 // Jobs
 static lv_obj_t *s_jobs_store, *s_jobs_url, *s_jobs_list, *s_run_name, *s_run_bar, *s_run_info;
-static lv_obj_t *s_del_lbl, *s_thumb, *s_thumb_msg;
+static lv_obj_t *s_del_lbl, *s_thumb, *s_thumb_msg, *s_del_btn, *s_hist_lbl;
+static bool s_show_hist = false;
+static uint32_t s_hist_rev = 0;
 static std::string s_sel_job;
 static uint32_t s_jobs_rev = 0, s_del_armed = 0;
 static jobs::RunState s_last_run = jobs::RunState::Idle;
@@ -891,6 +894,41 @@ static void job_delete_cb(lv_event_t *) {
     s_sel_job.clear();
 }
 
+static void history_rebuild() {
+    lv_obj_clean(s_jobs_list);
+    std::vector<history::Entry> h = history::list();
+    if (h.empty()) {
+        label(s_jobs_list, "No jobs yet. Finished jobs (panel or LightBurn) show up here.",
+              &lv_font_montserrat_14, COL_SUB);
+        return;
+    }
+    for (const history::Entry &e : h) {
+        lv_obj_t *row = box(s_jobs_list, LV_FLEX_FLOW_COLUMN, 2);
+        lv_obj_set_style_pad_ver(row, 6, 0);
+        lv_obj_set_style_border_side(row, LV_BORDER_SIDE_BOTTOM, 0);
+        lv_obj_set_style_border_width(row, 1, 0);
+        lv_obj_set_style_border_color(row, C(COL_LINE), 0);
+        lv_obj_t *n = label(row, e.name, &lv_font_montserrat_16, COL_TEXT);
+        lv_label_set_long_mode(n, LV_LABEL_LONG_DOT);
+        lv_obj_set_width(n, LV_PCT(100));
+        bool bad = e.result == (uint8_t)history::Result::Stopped || e.result == (uint8_t)history::Result::Failed;
+        label(row, history::describe(e).c_str(), &lv_font_montserrat_14, bad ? COL_RED : COL_SUB);
+    }
+}
+
+static void hist_toggle_cb(lv_event_t *) {
+    s_show_hist = !s_show_hist;
+    lv_label_set_text(s_hist_lbl, s_show_hist ? "Files" : "History");
+    if (s_show_hist) {
+        lv_obj_add_flag(s_del_btn, LV_OBJ_FLAG_HIDDEN);
+        s_hist_rev = history::revision();
+        history_rebuild();
+    } else {
+        lv_obj_remove_flag(s_del_btn, LV_OBJ_FLAG_HIDDEN);
+        s_jobs_rev = 0;  // rebuild the file list on the next refresh
+    }
+}
+
 static void build_jobs() {
     lv_obj_t *scr = make_screen(SCR_JOBS);
     lv_obj_t *c = make_content(scr);
@@ -936,9 +974,15 @@ static void build_jobs() {
     lv_obj_t *hdr = box(lc, LV_FLEX_FLOW_ROW, 8);
     lv_obj_set_flex_align(hdr, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
     s_jobs_store = label(hdr, "Checking storage...", &lv_font_montserrat_14, COL_SUB);
-    lv_obj_t *del = button(hdr, "Delete", COL_BTN, COL_RED, &lv_font_montserrat_16, job_delete_cb,
-                           nullptr, COL_EDGE, &s_del_lbl);
-    lv_obj_set_size(del, 110, 44);
+    lv_label_set_long_mode(s_jobs_store, LV_LABEL_LONG_DOT);
+    lv_obj_set_width(s_jobs_store, 1);
+    lv_obj_set_flex_grow(s_jobs_store, 1);
+    lv_obj_t *hb = button(hdr, "History", COL_BTN, COL_TEXT, &lv_font_montserrat_16, hist_toggle_cb,
+                          nullptr, COL_EDGE, &s_hist_lbl);
+    lv_obj_set_size(hb, 100, 44);
+    s_del_btn = button(hdr, "Delete", COL_BTN, COL_RED, &lv_font_montserrat_16, job_delete_cb,
+                       nullptr, COL_EDGE, &s_del_lbl);
+    lv_obj_set_size(s_del_btn, 100, 44);
     s_jobs_list = box(lc, LV_FLEX_FLOW_COLUMN, 8);
     lv_obj_set_flex_grow(s_jobs_list, 1);
     lv_obj_add_flag(s_jobs_list, LV_OBJ_FLAG_SCROLLABLE);
@@ -1007,6 +1051,14 @@ static void refresh_jobs(const net::Info &ni) {
         lv_label_set_text_fmt(s_jobs_url, "Upload from a browser: http://%s/", ni.ip.c_str());
     else
         lv_label_set_text(s_jobs_url, "Connect Wi-Fi (Setup) to upload jobs");
+    if (s_show_hist) {
+        uint32_t hr = history::revision();
+        if (hr != s_hist_rev) {
+            s_hist_rev = hr;
+            history_rebuild();
+        }
+        return;
+    }
     uint32_t rev = jobs::revision();
     if (rev != s_jobs_rev) {
         s_jobs_rev = rev;
@@ -1577,6 +1629,7 @@ static void refresh(lv_timer_t *) {
         lv_label_set_text(s_job_sub, st.job_active      ? "Streaming from LightBurn"
                                      : st.host_connected ? "LightBurn connected"
                                                          : "Ready");
+    history::tick();
     refresh_jobs(ni);
 
     // Preview picture changed: drop LVGL's cached copy and redraw both views
