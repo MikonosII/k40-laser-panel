@@ -1,0 +1,84 @@
+menu "K40 panel"
+
+    menu "Wi-Fi / LightBurn"
+        config K40_WIFI_SSID
+            string "Wi-Fi SSID"
+            default ""
+        config K40_WIFI_PASSWORD
+            string "Wi-Fi password"
+            default ""
+        config K40_HOSTNAME
+            string "Network hostname"
+            default "k40-panel"
+        config K40_TELNET_PORT
+            int "LightBurn TCP port"
+            default 23
+        config K40_ALLOWED_IP
+            string "Only accept LightBurn from this IP (blank = any)"
+            default ""
+            help
+                Set this to your LightBurn PC's reserved IP, e.g. 192.168.1.50.
+                Anything else on the network is refused.
+    endmenu
+
+    menu "grblHAL link"
+        config K40_GRBL_BAUD
+            int "UART baud to the SKR"
+            default 115200
+        config K40_GRBL_TX_GPIO
+            int "Panel TX GPIO (UART3-IN TX -> SKR PA3/RX)"
+            default 27
+        config K40_GRBL_RX_GPIO
+            int "Panel RX GPIO (UART3-IN RX <- SKR PA2/TX)"
+            default 28
+            help
+                UART3-IN is the 4-pin XH2.54 header under the USB-C ports.
+                Its 5V pin is a power INPUT to the panel - don't connect it
+                to the SKR's 5V.
+    endmenu
+
+    menu "Laser"
+        config K40_S_MAX
+            int "Spindle max ($30)"
+            default 1000
+        config K40_MAX_POWER_PCT
+            int "Panel test/pointer power cap (%)"
+            range 1 100
+            default 70
+            help
+                Highest power the panel itself will ever command.
+                Set it to the duty that gives your tube's safe current.
+        config K40_POINTER_PCT
+            int "Pointer power (%)"
+            range 0 10
+            default 1
+        config K40_EXHAUST_AUX_PORT
+            int "Exhaust aux output (M64/M65 P#), -1 = hide button"
+            range -1 7
+            default -1
+    endmenu
+
+    menu "Display"
+        choice K40_ROTATION
+            prompt "Portrait orientation"
+            default K40_ROTATION_90
+            config K40_ROTATION_90
+                bool "Rotate 90 degrees"
+            config K40_ROTATION_270
+                bool "Rotate 270 degrees (flip if upside down)"
+        endchoice
+        config K40_PCLK_HZ
+            int "RGB pixel clock (Hz)"
+            default 18000000
+            help
+                Elecrow's example code uses 18 MHz.
+        config K40_BACKLIGHT_PCT
+            int "Backlight brightness (%)"
+            range 0 100
+            default 100
+        config K40_SWAP_COLOR_BYTES
+            bool "Swap RGB565 bytes (enable if colors look scrambled)"
+            default n
+    endmenu
+
+endmenu
