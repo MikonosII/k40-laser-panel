@@ -1,8 +1,8 @@
 diff --git a/boards/btt_skr_mini_e3_3.0_map.h b/boards/btt_skr_mini_e3_3.0_map.h
-index 2037367..d80a751 100644
+index 2037367..90b5d5f 100644
 --- a/boards/btt_skr_mini_e3_3.0_map.h
 +++ b/boards/btt_skr_mini_e3_3.0_map.h
-@@ -96,8 +96,13 @@
+@@ -96,16 +96,30 @@
  #endif
  #endif
  
@@ -15,8 +15,25 @@ index 2037367..d80a751 100644
 +#endif
  #define AUXOUTPUT1_PORT         GPIOC // Spindle direction - FAN0 (switched output)
  #define AUXOUTPUT1_PIN          6
++#ifdef K40_ENABLE_ON_HB
++#define AUXOUTPUT2_PORT         GPIOC // Laser enable - HB (bed) MOSFET, to PSU L through a diode
++#define AUXOUTPUT2_PIN          9
++#define AUXOUTPUT3_PORT         GPIOC // Coolant flood - HE0 (switched output)
++#define AUXOUTPUT3_PIN          8
++#define AUXOUTPUT4_PORT         GPIOC // Coolant mist - FAN1 (switched output)
++#define AUXOUTPUT4_PIN          7
++#else
  #define AUXOUTPUT2_PORT         GPIOC // Spindle enable - FAN1 (switched output)
-@@ -119,7 +124,7 @@
+ #define AUXOUTPUT2_PIN          7
+ #define AUXOUTPUT3_PORT         GPIOC // Coolant flood - HE0 (switched output)
+ #define AUXOUTPUT3_PIN          8
+ #define AUXOUTPUT4_PORT         GPIOC // Coolant mist - HB (switched output)
+ #define AUXOUTPUT4_PIN          9
++#endif
+ #define AUXOUTPUT5_PORT         GPIOB // Spare - FAN2 (switched output)
+ #define AUXOUTPUT5_PIN          15
+ #define AUXOUTPUT6_PORT         GPIOC // Power supply control - PS-ON connector
+@@ -119,7 +133,7 @@
  #if DRIVER_SPINDLE_ENABLE & SPINDLE_PWM
  #define SPINDLE_PWM_PORT_BASE   GPIOA_BASE
  #define SPINDLE_PWM_PORT        AUXOUTPUT0_PORT

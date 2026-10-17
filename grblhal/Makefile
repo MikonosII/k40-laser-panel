@@ -18,7 +18,7 @@ DEFS := -DSTM32G0B1xx -DUSE_HAL_DRIVER \
         -DBOARD_BTT_SKR_MINI_E3_V30= -DUSB_SERIAL_CDC=0 -DHAS_BOOTLOADER= \
         -DRX_BUFFER_SIZE=512 -DNVS_SIZE=1536 -DOVERRIDE_MY_MACHINE
 # ... plus the K40 setup (defaults apply on first boot or after $RST=*)
-DEFS += -DK40_PWM_NEOPIXEL \
+DEFS += -DK40_PWM_NEOPIXEL -DK40_ENABLE_ON_HB \
         -DDEFAULT_LASER_MODE=1 \
         -DDEFAULT_SPINDLE_RPM_MAX=1000.0f -DDEFAULT_SPINDLE_RPM_MIN=0.0f \
         -DDEFAULT_SPINDLE_PWM_FREQ=1000 \
@@ -34,7 +34,7 @@ INCS := -I$(DRV) -I$(DRV)/Inc -I$(DRV)/boards -I$(DRV)/grbl -I$(DRV)/keypad -I$(
         -I$(HAL)/Inc -I$(DEV)/Include -I$(CORE)/CMSIS/Core/Include
 
 CPU    := -mcpu=cortex-m0plus -mthumb
-CFLAGS := $(CPU) -Os -g -std=gnu11 -ffunction-sections -fdata-sections -fno-common \
+CFLAGS := $(CPU) -MMD -MP -Os -g -std=gnu11 -ffunction-sections -fdata-sections -fno-common \
           -Wall -Wno-unused-function -Wno-unused-variable -Wno-unused-but-set-variable \
           -Wno-missing-braces -Wno-switch $(DEFS) $(INCS)
 LDFLAGS := $(CPU) -T$(DRV)/STM32G0B1RETX_FLASH.ld -Wl,--gc-sections -Wl,-Map=$(OUT)/grblHAL.map \
@@ -76,3 +76,5 @@ clean:
 	rm -rf $(OUT)
 
 .PHONY: all clean
+
+-include $(OBJS:.o=.d)

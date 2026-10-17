@@ -14,7 +14,7 @@ DEFS := -DSTM32H723xx -DUSE_HAL_DRIVER -DHSE_VALUE=25000000 -DL1_CACHE_ENABLE=1 
         -DOVERRIDE_MY_MACHINE '-DISR_CODE=__attribute__((section(".itcmram")))' \
         -DBOARD_BTT_SKR_30 -DTRINAMIC_ENABLE=2209 -DSDCARD_ENABLE=1 -DUSB_SERIAL_CDC=0
 # ... plus the K40 setup (defaults apply on first boot or after $RST=*)
-DEFS += -DK40_PWM_RGB -DK40_FEEDHOLD_PWRDET \
+DEFS += -DK40_PWM_RGB -DK40_FEEDHOLD_PWRDET -DK40_ENABLE_ON_HB \
         -DDEFAULT_LASER_MODE=1 \
         -DDEFAULT_SPINDLE_RPM_MAX=1000.0f -DDEFAULT_SPINDLE_RPM_MIN=0.0f \
         -DDEFAULT_SPINDLE_PWM_FREQ=1000 \
@@ -32,7 +32,7 @@ INCS := -I$(DRV) -I$(DRV)/Inc $(addprefix -I$(DRV)/,$(LIBDIRS)) \
         -I$(DRV)/Drivers/CMSIS/Include
 
 CPU    := -mcpu=cortex-m7 -mthumb -mfpu=fpv5-d16 -mfloat-abi=hard
-CFLAGS := $(CPU) -Os -g -std=gnu11 -ffunction-sections -fdata-sections -fno-common \
+CFLAGS := $(CPU) -MMD -MP -Os -g -std=gnu11 -ffunction-sections -fdata-sections -fno-common \
           -Wall -Wno-unused-function -Wno-unused-variable -Wno-unused-but-set-variable \
           -Wno-missing-braces -Wno-switch $(DEFS) $(INCS)
 LDFLAGS := $(CPU) -T$(DRV)/STM32H723VGTX_BL_FLASH.ld -Wl,--gc-sections -Wl,-Map=$(OUT)/grblHAL.map \
@@ -71,3 +71,5 @@ clean:
 	rm -rf $(OUT)
 
 .PHONY: all clean
+
+-include $(OBJS:.o=.d)
