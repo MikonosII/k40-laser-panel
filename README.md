@@ -11,6 +11,11 @@ LightBurn ──Wi-Fi TCP:23──► panel (ESP32-P4 + C6 Wi-Fi) ──UART3 11
 
 ## Wiring (panel ↔ SKR)
 
+Whole-system diagram: **[docs/wiring.svg](docs/wiring.svg)** (power, panel, SKR, laser PSU, lid/water
+switches, tube current sensor).
+
+![Wiring](docs/wiring.png)
+
 Use the panel's **UART3-IN** header (J10, 4-pin XH2.54, under the USB-C ports). From Elecrow's
 schematic, its TX/RX go through a BSS138 level shifter whose header side is pulled up (4.7 kΩ)
 to the header's own 5V pin, so **pin 3 must have 5V for the link to work**.
