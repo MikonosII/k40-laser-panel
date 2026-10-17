@@ -63,7 +63,43 @@ fire is refused while either is open.
 | Coolant flood | air assist | Panel's Air button toggles flood (realtime `0xA0`) |
 | `$14`, `$6` (optional) | see above | Lid / water status on the Laser screen |
 
-## Build and flash the display
+## Updating from a microSD card
+
+Like the SKR, the panel can update itself from a memory card:
+
+1. Format a microSD card as **FAT32**.
+2. Copy the new firmware onto it, named exactly **`firmware.bin`** (in the top folder).
+3. Power the panel off, insert the card, power it on.
+4. A progress screen appears ("Updating firmware from SD card"); **don't power off** until it
+   says *Update installed* and restarts (about 30 seconds).
+5. The file is renamed **`firmware.cur`** so it isn't installed again. If the file wasn't valid
+   for this panel, it's renamed **`firmware.bad`** and the old firmware keeps running.
+
+The current version is shown at the bottom of the **Setup** screen. Your saved settings
+(Wi-Fi, LightBurn IP, power cap) are kept across updates.
+
+Where to get `firmware.bin`:
+- **Ready-made:** download it from this repo's **Releases** page.
+- **Build it yourself:** after building (below), use `build/k40_panel.bin`, renamed to `firmware.bin`.
+
+The update installs into the panel's second firmware slot and only switches over once the new
+copy is fully written and verified, so pulling the card or a bad file can't brick it.
+
+## First install (one time, over USB)
+
+The SD updater is part of this firmware, so it has to get onto the panel once over USB. You
+don't need to install any tools for this: use the ready-made full image from **Releases**.
+
+1. Download **`k40-panel-full-vX.Y.Z.bin`** from Releases.
+2. In **Chrome or Edge**, open **https://espressif.github.io/esptool-js/**.
+3. Plug the panel's **UART** USB-C port into the computer, click **Connect**, pick the port.
+   (Windows may need the CH340 driver first.)
+4. Set **Flash Address `0x0`**, choose the downloaded file, click **Program**.
+5. When it finishes, press **RESET** on the panel. From now on, update with the SD card.
+
+If it won't connect, hold **BOOT**, tap **RESET**, release **BOOT**, and click Connect again.
+
+## Build and flash the display (from source)
 
 You need a computer (Windows, macOS or Linux) and a USB-C data cable. Budget about an hour the
 first time; most of it is the one-time ESP-IDF install.

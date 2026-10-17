@@ -8,6 +8,7 @@
 
 #include "board.hpp"
 #include "display.hpp"
+#include "esp_app_desc.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "grbl_link.hpp"
@@ -906,6 +907,11 @@ static void build_setup() {
     lv_obj_t *save = button(s_set_content, "Save", COL_AMBER, 0x2A1D04, &lv_font_montserrat_24, save_cb);
     lv_obj_set_size(save, LV_PCT(100), 64);
     lv_obj_set_style_radius(save, 10, 0);
+    lv_obj_t *ver = label(s_set_content, "", &lv_font_montserrat_14, COL_SUB);
+    lv_label_set_text_fmt(ver, "Firmware %s  -  update: firmware.bin on the SD card, then restart",
+                          esp_app_get_description()->version);
+    lv_obj_set_width(ver, LV_PCT(100));
+    lv_label_set_long_mode(ver, LV_LABEL_LONG_WRAP);
 
     // Small pop-up keyboard: sits between the content and the nav bar, hidden until a field is tapped
     s_kb = lv_keyboard_create(scr);

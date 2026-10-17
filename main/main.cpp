@@ -4,6 +4,7 @@
 #include "esp_log.h"
 #include "grbl_link.hpp"
 #include "net_bridge.hpp"
+#include "sd_update.hpp"
 #include "settings.hpp"
 #include "nvs_flash.h"
 #include "ui.hpp"
@@ -18,6 +19,7 @@ extern "C" void app_main(void) {
     settings::init();
     board::init();
     display::init();
+    sd_update::run();  // before Wi-Fi: the SD card and the C6 link share the SD host
     grbl::init();
 
     display::lock();
