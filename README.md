@@ -11,21 +11,24 @@ LightBurn ──Wi-Fi TCP:23──► panel (ESP32-P4 + C6 Wi-Fi) ──UART3 11
 
 ## Wiring (panel ↔ SKR)
 
-Use the panel's **UART3-IN** header (4-pin XH2.54, under the USB-C ports): **TX = GPIO27, RX = GPIO28**.
+Use the panel's **UART3-IN** header (J10, 4-pin XH2.54, under the USB-C ports). From Elecrow's
+schematic, its TX/RX go through a BSS138 level shifter whose header side is pulled up (4.7 kΩ)
+to the header's own 5V pin, so **pin 3 must have 5V for the link to work**.
 
-| Panel UART3-IN | SKR TFT header |
-|---|---|
-| TX (GPIO27) | RX — PA3 |
-| RX (GPIO28) | TX — PA2 |
-| GND | GND |
-| 5V | **leave unconnected** (see below) |
+| UART3-IN pin | Signal | Connect to |
+|---|---|---|
+| 1 | TX3 (GPIO27 via shifter) | SKR TFT **RX — PA3** |
+| 2 | RX3 (GPIO28 via shifter) | SKR TFT **TX — PA2** |
+| 3 | +5V_IN | **5V from the power supply** (also powers the panel) |
+| 4 | GND | Supply GND **and** SKR GND |
 
-UART3-IN's 5V pin is a power **input** to the panel, and the panel can draw 8–10 W. Don't feed it
-from the SKR's 5V. Power the panel from its USB-C port with a 5V/2A+ supply, or wire a separate
-5V 3A buck to that 5V pin.
+- Feed pin 3 from a real 5V supply (≥2 A; the panel can draw 8–10 W), e.g. the 5V side of a
+  Mean Well RD-125B. Not the SKR's 5V, and not the laser PSU's 5V.
+- The header's signal lines idle at **5V**. The SKR's PA2/PA3 are 5V-tolerant and the pull-ups
+  limit current to <1 mA. For extra margin, add 1 kΩ in series on each data wire.
+- Measure pin 1 → GND with the panel powered (≈5V) before connecting the SKR.
 
-Both sides are 3.3 V logic. Flash grblHAL with the **UART** build (`BTT_SKR_MINI_E3_V30`) so its
-serial port is the TFT header.
+Flash grblHAL with the **UART** build (`BTT_SKR_MINI_E3_V30`) so its serial port is the TFT header.
 
 ## Lid and water status (optional)
 

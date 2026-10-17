@@ -32,9 +32,10 @@ menu "K40 panel"
             int "Panel RX GPIO (UART3-IN RX <- SKR PA2/TX)"
             default 28
             help
-                UART3-IN is the 4-pin XH2.54 header under the USB-C ports.
-                Its 5V pin is a power INPUT to the panel - don't connect it
-                to the SKR's 5V.
+                UART3-IN (J10) is the 4-pin XH2.54 header under the USB-C ports:
+                1 TX, 2 RX, 3 +5V_IN, 4 GND. Its TX/RX are level-shifted to the
+                5V on pin 3, so that pin must be powered (from a 5V supply,
+                not the SKR) for the link to work.
     endmenu
 
     menu "Laser"
