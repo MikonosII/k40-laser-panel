@@ -53,6 +53,12 @@ grblHAL settings:
 The Laser screen then shows **Lid: Closed/Open** and **Water flow: Flowing/No flow**, and test
 fire is refused while either is open.
 
+## Tube current sensor (optional)
+
+An INA226 current sensor in the tube's return wire, behind an I2C isolator, lets the panel show
+real tube current (mA) and warn above a limit. Parts list, wiring and safety notes:
+**[docs/tube-current-sensor.md](docs/tube-current-sensor.md)**.
+
 ## grblHAL settings this firmware assumes
 
 | Setting | Value | Why |
@@ -214,6 +220,7 @@ the first Save.
 | Screen orientation | **Flipped** turns the UI 180° if the panel is mounted the other way up |
 | PIN lock | 4 digits. Asked for when opening Setup or arming test fire; unlocks both for 5 min. Blank = off |
 | Laser on-time | Hours the laser output has been on (tube wear). **Reset** needs two taps |
+| Tube current warning | 5–30 mA; warns when the optional current sensor reads above it |
 
 **Forgot the PIN?** Put an empty file named `reset_pin.txt` on the SD card and restart; the
 PIN is cleared and the file is renamed `reset_pin.done`.

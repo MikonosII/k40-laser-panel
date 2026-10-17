@@ -39,6 +39,7 @@ void init() {
     v.allowed_ip = CONFIG_K40_ALLOWED_IP;
     v.max_power_pct = CONFIG_K40_MAX_POWER_PCT;
     v.brightness = CONFIG_K40_BACKLIGHT_PCT;
+    v.ma_limit = CONFIG_K40_MA_LIMIT;
     uint32_t tube_s = 0;
 
     nvs_handle_t h;
@@ -51,6 +52,7 @@ void init() {
         v.sleep_min = read_int(h, "sleep", v.sleep_min);
         v.pin = read_str(h, "pin", "");
         v.flipped = read_int(h, "flip", 0) != 0;
+        v.ma_limit = read_int(h, "ma_limit", v.ma_limit);
         nvs_get_u32(h, "tube_s", &tube_s);
         nvs_close(h);
         ESP_LOGI(TAG, "loaded saved settings");
@@ -77,7 +79,8 @@ bool save(const Values &v) {
               nvs_set_i32(h, "bright", v.brightness) == ESP_OK &&
               nvs_set_i32(h, "sleep", v.sleep_min) == ESP_OK &&
               nvs_set_str(h, "pin", v.pin.c_str()) == ESP_OK &&
-              nvs_set_i32(h, "flip", v.flipped ? 1 : 0) == ESP_OK && nvs_commit(h) == ESP_OK;
+              nvs_set_i32(h, "flip", v.flipped ? 1 : 0) == ESP_OK &&
+              nvs_set_i32(h, "ma_limit", v.ma_limit) == ESP_OK && nvs_commit(h) == ESP_OK;
     nvs_close(h);
     if (ok) {
         std::lock_guard<std::mutex> g(s_mx);

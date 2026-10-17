@@ -15,6 +15,7 @@ struct Values {
     int sleep_min = 5;       // screen sleep after this many idle minutes; 0 = never
     std::string pin;         // 4 digits guarding Setup and test fire; empty = no lock
     bool flipped = false;    // rotate the portrait UI 180 degrees
+    int ma_limit = 18;       // warn above this tube current (needs the current sensor)
 };
 
 void init();  // call after nvs_flash_init()

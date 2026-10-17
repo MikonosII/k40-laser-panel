@@ -3,6 +3,7 @@
 #include "display.hpp"
 #include "esp_log.h"
 #include "grbl_link.hpp"
+#include "ma_sensor.hpp"
 #include "net_bridge.hpp"
 #include "sd_update.hpp"
 #include "settings.hpp"
@@ -21,6 +22,7 @@ extern "C" void app_main(void) {
     display::init();
     sd_update::run();  // before Wi-Fi: the SD card and the C6 link share the SD host
     grbl::init();
+    ma_sensor::init();  // optional tube-current sensor on I2C-OUT
 
     display::lock();
     ui::build();

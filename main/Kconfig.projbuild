@@ -53,6 +53,16 @@ menu "K40 panel"
             int "Pointer power (%)"
             range 0 10
             default 1
+        config K40_MA_SHUNT_MOHM
+            int "Tube current sensor shunt (milliohms)"
+            default 100
+            help
+                Shunt resistor on the INA226/INA219 breakout. The common
+                CJMCU-226 and INA219 boards use 0.1 ohm (R100) = 100.
+        config K40_MA_LIMIT
+            int "Default tube current warning limit (mA)"
+            range 5 40
+            default 18
         config K40_EXHAUST_AUX_PORT
             int "Exhaust aux output (M64/M65 P#), -1 = hide button"
             range -1 7

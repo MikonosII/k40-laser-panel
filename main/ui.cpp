@@ -13,6 +13,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "grbl_link.hpp"
+#include "ma_sensor.hpp"
 #include "lvgl.h"
 #include "net_bridge.hpp"
 #include "sdkconfig.h"
@@ -69,7 +70,7 @@ static const int DUR_MS[] = {50, 200, 1000};
 static int s_test_pct = 10, s_dur_i = 1;
 static bool s_armed = false, s_exhaust = false;
 static lv_obj_t *s_test_lbl, *s_dur_btn[3], *s_arm_btn, *s_arm_lbl, *s_fire_btn;
-static lv_obj_t *s_lid_lbl, *s_water_lbl, *s_cap_lbl;
+static lv_obj_t *s_lid_lbl, *s_water_lbl, *s_cap_lbl, *s_ma_lbl;
 static lv_obj_t *s_exh_lbl;
 static lv_timer_t *s_arm_timer;
 // Alarms
@@ -686,6 +687,8 @@ static void build_laser() {
     }
     s_cap_lbl = label(pw, "", &lv_font_montserrat_14, COL_SUB);
     lv_label_set_text_fmt(s_cap_lbl, "Capped at %d%% (tube safe current)", settings::get().max_power_pct);
+    s_ma_lbl = label(pw, "", &lv_font_montserrat_16, COL_SOFT);  // shown when the mA sensor is fitted
+    lv_obj_add_flag(s_ma_lbl, LV_OBJ_FLAG_HIDDEN);
 
     lv_obj_t *durs = box(c, LV_FLEX_FLOW_ROW, 6);
     static const char *dtxt[3] = {"50 ms", "200 ms", "1 s"};
@@ -875,6 +878,11 @@ static void cap_slider_cb(lv_event_t *) {
     lv_label_set_text_fmt(s_cap_val, "%d %%", (int)lv_slider_get_value(s_cap_slider));
 }
 
+static lv_obj_t *s_malimit_slider, *s_malimit_val;
+static void malimit_slider_cb(lv_event_t *) {
+    lv_label_set_text_fmt(s_malimit_val, "%d mA", (int)lv_slider_get_value(s_malimit_slider));
+}
+
 static void bright_slider_cb(lv_event_t *e) {
     int v = (int)lv_slider_get_value(s_bright_slider);
     lv_label_set_text_fmt(s_bright_val, "%d %%", v);
@@ -960,6 +968,7 @@ static void save_cb(lv_event_t *) {
     v.max_power_pct = (int)lv_slider_get_value(s_cap_slider);
     v.brightness = (int)lv_slider_get_value(s_bright_slider);
     v.sleep_min = SLEEP_OPTS[s_sleep_i];
+    v.ma_limit = (int)lv_slider_get_value(s_malimit_slider);
     v.flipped = s_flip_i == 1;
     v.pin = lv_textarea_get_text(s_pin_set_ta);
     const char *err = settings::check_ssid(v.ssid);
@@ -1072,6 +1081,18 @@ static void build_setup() {
     lv_slider_set_range(s_cap_slider, 1, 100);
     lv_slider_set_value(s_cap_slider, v.max_power_pct, LV_ANIM_OFF);
     lv_obj_add_event_cb(s_cap_slider, cap_slider_cb, LV_EVENT_VALUE_CHANGED, nullptr);
+    lv_obj_t *rl = box(ld, LV_FLEX_FLOW_ROW, 0);
+    lv_obj_set_flex_align(rl, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    label(rl, "Tube current warning", &lv_font_montserrat_20, COL_TEXT);
+    s_malimit_val = label(rl, "", &lv_font_montserrat_20, COL_AMBER);
+    s_malimit_slider = lv_slider_create(ld);
+    style_slider(s_malimit_slider);
+    lv_slider_set_range(s_malimit_slider, 5, 30);
+    lv_slider_set_value(s_malimit_slider, v.ma_limit, LV_ANIM_OFF);
+    lv_obj_add_event_cb(s_malimit_slider, malimit_slider_cb, LV_EVENT_VALUE_CHANGED, nullptr);
+    lv_label_set_text_fmt(s_malimit_val, "%d mA", v.ma_limit);
+    label(ld, ma_sensor::get().present ? "Current sensor connected" : "No current sensor fitted (optional)",
+          &lv_font_montserrat_14, COL_SUB);
     lv_obj_t *r2 = box(ld, LV_FLEX_FLOW_ROW, 0);
     lv_obj_set_flex_align(r2, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
     label(r2, "Brightness", &lv_font_montserrat_20, COL_TEXT);
@@ -1251,7 +1272,29 @@ static void refresh(lv_timer_t *) {
     lv_label_set_text_fmt(s_speed, "%.0f", st.feed);
     int pct = CONFIG_K40_S_MAX > 0 ? (int)(st.spindle * 100.0f / CONFIG_K40_S_MAX + 0.5f) : 0;
     lv_label_set_text_fmt(s_power, "%d %%", pct);
-    lv_label_set_text_fmt(s_sval, "S%.0f / %d", st.spindle, CONFIG_K40_S_MAX);
+    ma_sensor::Reading mr = ma_sensor::get();
+    int ma_limit = settings::get().ma_limit;
+    if (mr.present) {
+        bool over = mr.ma > ma_limit;
+        lv_label_set_text_fmt(s_sval, "Tube %.1f mA", mr.ma);
+        lv_obj_set_style_text_color(s_sval, C(over ? COL_RED : COL_SUB), 0);
+        lv_obj_remove_flag(s_ma_lbl, LV_OBJ_FLAG_HIDDEN);
+        lv_label_set_text_fmt(s_ma_lbl, "Measured: %.1f mA now, %.1f mA peak", mr.ma, mr.peak_ma);
+        lv_obj_set_style_text_color(s_ma_lbl, C(mr.peak_ma > ma_limit ? COL_RED : COL_SOFT), 0);
+        // Warn when over the limit for ~0.6 s (3 refreshes); repeat at most every 10 s
+        static int over_count = 0;
+        static uint32_t last_warn = 0;
+        over_count = over ? over_count + 1 : 0;
+        if (over_count >= 3 && lv_tick_get() - last_warn > 10000) {
+            last_warn = lv_tick_get();
+            char msg[64];
+            snprintf(msg, sizeof(msg), "Tube current %.1f mA - over %d mA limit", mr.ma, ma_limit);
+            wake();
+            toast(msg);
+        }
+    } else {
+        lv_label_set_text_fmt(s_sval, "S%.0f / %d", st.spindle, CONFIG_K40_S_MAX);
+    }
     lv_label_set_text_fmt(s_work, "Work X %.2f Y %.2f", st.wpos[0], st.wpos[1]);
     lv_label_set_text_fmt(s_feed_ov, "%d%%", st.ov_feed);
     lv_label_set_text_fmt(s_pwr_ov, "%d%%", st.ov_spindle);
