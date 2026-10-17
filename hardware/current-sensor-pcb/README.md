@@ -116,7 +116,10 @@ Cheaper than JLC assembly if you're OK hand-soldering fine-pitch SMT.
 1. **Bare boards:** upload `fab/k40-current-sensor-gerbers.zip` to JLCPCB with **assembly off**
    (about $2–5 for 5 boards plus shipping), or to OSH Park (about $22 for 3, shipped in the US).
 2. **Parts:** upload **`bom-digikey-arrow.csv`** to Digi-Key's BOM Manager (myLists → Upload) or
-   Arrow's BOM tool. It's keyed by manufacturer part number, so both sites match it. Quantities are
+   Arrow's BOM tool. The resistors and capacitors carry Digi-Key **cut-tape** part numbers
+   (the `CT-ND` / `-1-ND` ones), so you can buy 10 instead of a 5,000-piece reel. If any line
+   still matches a reel, switch its packaging to **Cut Tape**. The other parts are matched by
+   manufacturer part number, which Arrow also accepts. Quantities are
    for **2 boards**, with 10 of each small resistor and capacitor because they're easy to lose.
    Expect roughly $45–60 total; most of that is the two ADM3260s (about $13–16 each).
 3. **Solder order:** U1 and U2 first (flux, tack one corner pin, check alignment, drag-solder,
