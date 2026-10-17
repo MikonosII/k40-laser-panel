@@ -48,7 +48,7 @@ PARTS = [
     ('C8', '100nF', C0603, 'C14663', (47.0, 18.5), 0, {'1': 'INP_F', '2': 'INN_F'}),
     ('R1', '0.1R 1% 1206 1W', (R, 'R_1206_3216Metric'), 'C7467250', (49.5, 30.0), 0, {'1': 'TUBE_IN', '2': 'GNDISO'}),
     ('D1', 'SMAJ5.0CA', ('Diode_SMD', 'D_SMA'), 'C140894', (44.0, 29.0), 90, {'1': 'TUBE_IN', '2': 'GNDISO'}),
-    ('GDT1', 'GDT 230V 1812', (R, 'R_1812_4532Metric'), 'C41408096', (50.0, 23.5), 90, {'1': 'TUBE_IN', '2': 'EARTH'}),
+    ('GDT1', 'GDT 200V 1812 (Brightking 4532-201-LF)', (R, 'R_1812_4532Metric'), 'C522630', (50.0, 23.5), 90, {'1': 'TUBE_IN', '2': 'EARTH'}),
     ('J3', 'Tube return', ('TerminalBlock_Phoenix', 'TerminalBlock_Phoenix_MKDS-1,5-3-5.08_1x03_P5.08mm_Horizontal'),
      '', (62.0, 30.0), 90, {'1': 'TUBE_IN', '2': 'GNDISO', '3': 'EARTH'}),
 ]

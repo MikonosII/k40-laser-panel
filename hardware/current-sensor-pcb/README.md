@@ -40,7 +40,7 @@ levels reliably, and the ADM3260 can only make 5 V from a 5 V input.
                                     |           |          ├ D1 SMAJ5.0CA ┤
                                     |           |          ├ R2 10 Ω ─ IN+ ┐ C8 100n
                                     |           |          │      R3 10 Ω ─ IN− ┘
-                                    |           |          └ GDT1 230 V ── J3 EARTH
+                                    |           |          └ GDT1 200 V ── J3 EARTH
 ```
 
 Full netlist (checked against the board file):
@@ -100,7 +100,7 @@ SSOP-20 and the 0.5 mm-pitch VSSOP-10 yourself.
 | C1, C4 | 10 µF 25 V | 0805 | C15850 |
 | C2, C3, C5–C8 | 100 nF | 0603 | C14663 |
 | D1 | SMAJ5.0CA bidirectional TVS | SMA | C140894 |
-| GDT1 | 230 V gas discharge tube (TECH PUBLIC TPSMD4532-230NF) | 1812 | C41408096 |
+| GDT1 | 200 V gas discharge tube (Brightking 4532-201-LF; alt. 150 V 4532-151-LF C84727) | 1812 | C522630 |
 
 Notes:
 - R4 = 30 kΩ (a JLC basic part) sets VISO ≈ 4.9 V. The datasheet's 30.9 kΩ gives 5.0 V. Either works.
