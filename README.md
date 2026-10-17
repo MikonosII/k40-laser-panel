@@ -28,7 +28,8 @@ to the header's own 5V pin, so **pin 3 must have 5V for the link to work**.
   limit current to <1 mA. For extra margin, add 1 kΩ in series on each data wire.
 - Measure pin 1 → GND with the panel powered (≈5V) before connecting the SKR.
 
-Flash grblHAL with the **UART** build (`BTT_SKR_MINI_E3_V30`) so its serial port is the TFT header.
+Flash the SKR with **[grblhal/](grblhal/README.md)**: a ready-made grblHAL `firmware.bin` (UART on the TFT
+header, laser PWM on the RGB connector, K40 defaults). Copy it to the SKR's SD card and power on.
 
 ## Lid and water status (optional)
 
@@ -43,12 +44,16 @@ touch the PSU circuit, so no diodes or level shifting are needed.
 
 Use normally-open contacts that **close** when the lid is shut / water is flowing.
 
-grblHAL settings:
+grblHAL settings (already the defaults in this repo's grblHAL build, see [grblhal/](grblhal/README.md)):
 
-| Setting | Change | Result |
+| Setting | Value | Result |
 |---|---|---|
-| `$14` | add **2** (feed hold invert) | Lid opens → feed hold: a running job pauses (`Pn:H`) |
-| `$6` | `1` (probe invert) | Water stops → `Pn:P` |
+| `$14` | `68` (feed hold **not** inverted) | Lid opens → feed hold: a running job pauses (`Pn:H`) |
+| `$6` | `0` | Water stops → `Pn:P` |
+
+grblHAL treats an input that's pulled high (switch open) as active, so a switch that closes to
+GND when everything is OK needs no inverting. Until the switches are fitted, use `$14=70` and
+`$6=1`, or the panel shows *Lid: Open* and *No flow*.
 
 The Laser screen then shows **Lid: Closed/Open** and **Water flow: Flowing/No flow**, and test
 fire is refused while either is open.
@@ -68,7 +73,8 @@ ready to order from JLCPCB, is in **[hardware/current-sensor-pcb](hardware/curre
 | `$30` | `1000` | Max S (must match *Spindle max* in menuconfig) |
 | `$31` | `0` | Min S |
 | Coolant flood | air assist | Panel's Air button toggles flood (realtime `0xA0`) |
-| `$14`, `$6` (optional) | see above | Lid / water status on the Laser screen |
+| `$14`, `$6` | `68`, `0` (see above) | Lid / water status on the Laser screen |
+| `$33` | `1000` | Laser PWM frequency (Hz) |
 
 ## Updating from a microSD card
 

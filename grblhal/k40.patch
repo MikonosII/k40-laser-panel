@@ -1,0 +1,27 @@
+diff --git a/boards/btt_skr_mini_e3_3.0_map.h b/boards/btt_skr_mini_e3_3.0_map.h
+index 2037367..d80a751 100644
+--- a/boards/btt_skr_mini_e3_3.0_map.h
++++ b/boards/btt_skr_mini_e3_3.0_map.h
+@@ -96,8 +96,13 @@
+ #endif
+ #endif
+ 
++#ifdef K40_PWM_NEOPIXEL
++#define AUXOUTPUT0_PORT         GPIOA // Laser PWM - NEOPIXEL/RGB connector data pin (5V buffered)
++#define AUXOUTPUT0_PIN          8
++#else
+ #define AUXOUTPUT0_PORT         GPIOA // Spindle PWM - SERVOS connector (3.3V logic)
+ #define AUXOUTPUT0_PIN          1
++#endif
+ #define AUXOUTPUT1_PORT         GPIOC // Spindle direction - FAN0 (switched output)
+ #define AUXOUTPUT1_PIN          6
+ #define AUXOUTPUT2_PORT         GPIOC // Spindle enable - FAN1 (switched output)
+@@ -119,7 +124,7 @@
+ #if DRIVER_SPINDLE_ENABLE & SPINDLE_PWM
+ #define SPINDLE_PWM_PORT_BASE   GPIOA_BASE
+ #define SPINDLE_PWM_PORT        AUXOUTPUT0_PORT
+-#define SPINDLE_PWM_PIN         AUXOUTPUT0_PIN // PA1 - TIM2_CH2 (SERVOS)
++#define SPINDLE_PWM_PIN         AUXOUTPUT0_PIN // PA1 TIM2_CH2 (SERVOS) or PA8 TIM1_CH1 (NEOPIXEL)
+ #endif
+ #if DRIVER_SPINDLE_ENABLE & SPINDLE_DIR
+ #define SPINDLE_DIRECTION_PORT  AUXOUTPUT1_PORT
