@@ -22,6 +22,7 @@ static esp_lcd_panel_handle_t s_panel = nullptr;
 static esp_lcd_touch_handle_t s_touch = nullptr;
 static SemaphoreHandle_t s_lvgl_mutex = nullptr;
 static uint8_t *s_rot_buf = nullptr;  // scratch for software rotation
+static lv_display_t *s_disp = nullptr;
 
 // Partial draw buffers: 480 px wide (logical) x this many rows
 static constexpr int DRAW_ROWS = 60;
@@ -33,6 +34,16 @@ bool lock(int timeout_ms) {
 }
 
 void unlock() { xSemaphoreGiveRecursive(s_lvgl_mutex); }
+
+void set_flipped(bool flipped) {
+    // menuconfig picks the "normal" portrait direction; Flip turns it 180 degrees
+#if CONFIG_K40_ROTATION_270
+    bool r270 = !flipped;
+#else
+    bool r270 = flipped;
+#endif
+    if (s_disp) lv_display_set_rotation(s_disp, r270 ? LV_DISPLAY_ROTATION_270 : LV_DISPLAY_ROTATION_90);
+}
 
 static uint32_t tick_ms() { return (uint32_t)(esp_timer_get_time() / 1000); }
 
@@ -159,11 +170,8 @@ void init() {
     assert(buf1 && buf2 && s_rot_buf);
     lv_display_set_buffers(disp, buf1, buf2, DRAW_BUF_BYTES, LV_DISPLAY_RENDER_MODE_PARTIAL);
     lv_display_set_flush_cb(disp, flush_cb);
-#if CONFIG_K40_ROTATION_270
-    lv_display_set_rotation(disp, LV_DISPLAY_ROTATION_270);
-#else
-    lv_display_set_rotation(disp, LV_DISPLAY_ROTATION_90);
-#endif
+    s_disp = disp;
+    set_flipped(settings::get().flipped);
 
     lv_indev_t *indev = lv_indev_create();
     lv_indev_set_type(indev, LV_INDEV_TYPE_POINTER);

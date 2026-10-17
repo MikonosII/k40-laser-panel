@@ -3,6 +3,7 @@
 #include "ui.hpp"
 
 #include <cstdio>
+#include <cstring>
 #include <string>
 #include <vector>
 
@@ -164,8 +165,149 @@ static bool panel_send(const char *line) {
 
 // ---- shared chrome: header + bottom nav --------------------------------------
 
+// ---- PIN lock -----------------------------------------------------------------
+// When a PIN is set, opening Setup and arming test fire ask for it. A correct PIN
+// unlocks both for 5 minutes. Forgotten PIN: put reset_pin.txt on the SD card and reboot.
+
+static lv_obj_t *s_pin_overlay, *s_pin_ta, *s_pin_msg;
+static void (*s_pin_action)() = nullptr;
+static uint32_t s_unlocked_until = 0;
+static constexpr uint32_t UNLOCK_MS = 5 * 60 * 1000;
+
+static bool pin_unlocked() {
+    if (settings::get().pin.empty()) return true;
+    return s_unlocked_until && (int32_t)(s_unlocked_until - lv_tick_get()) > 0;
+}
+
+static void pin_close() {
+    lv_obj_add_flag(s_pin_overlay, LV_OBJ_FLAG_HIDDEN);
+    s_pin_action = nullptr;
+}
+
+static void pin_check() {
+    if (settings::get().pin == lv_textarea_get_text(s_pin_ta)) {
+        s_unlocked_until = lv_tick_get() + UNLOCK_MS;
+        void (*action)() = s_pin_action;
+        pin_close();
+        if (action) action();
+    } else {
+        lv_label_set_text(s_pin_msg, "Wrong PIN");
+        lv_textarea_set_text(s_pin_ta, "");
+    }
+}
+
+static void pin_kb_cb(lv_event_t *e) {
+    lv_event_code_t code = lv_event_get_code(e);
+    if (code == LV_EVENT_CANCEL) pin_close();
+    else if (code == LV_EVENT_READY) pin_check();
+}
+
+static void pin_ta_cb(lv_event_t *) {
+    // Check as soon as the 4th digit goes in
+    if (strlen(lv_textarea_get_text(s_pin_ta)) == 4) pin_check();
+}
+
+static void pin_build() {
+    s_pin_overlay = lv_obj_create(lv_layer_top());
+    lv_obj_remove_style_all(s_pin_overlay);
+    lv_obj_set_size(s_pin_overlay, LV_PCT(100), LV_PCT(100));
+    lv_obj_set_style_bg_color(s_pin_overlay, C(0x000000), 0);
+    lv_obj_set_style_bg_opa(s_pin_overlay, LV_OPA_80, 0);
+    lv_obj_add_flag(s_pin_overlay, LV_OBJ_FLAG_CLICKABLE);  // swallow taps behind the dialog
+    lv_obj_set_flex_flow(s_pin_overlay, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_flex_align(s_pin_overlay, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_pad_top(s_pin_overlay, 120, 0);
+
+    lv_obj_t *c = card(s_pin_overlay);
+    lv_obj_set_width(c, 360);
+    lv_obj_set_flex_align(c, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    label(c, "Enter PIN", &lv_font_montserrat_24, COL_TEXT);
+    s_pin_ta = lv_textarea_create(c);
+    lv_textarea_set_one_line(s_pin_ta, true);
+    lv_textarea_set_password_mode(s_pin_ta, true);
+    lv_textarea_set_accepted_chars(s_pin_ta, "0123456789");
+    lv_textarea_set_max_length(s_pin_ta, 4);
+    lv_obj_set_width(s_pin_ta, 200);
+    lv_obj_set_style_text_font(s_pin_ta, &lv_font_montserrat_40, 0);
+    lv_obj_set_style_text_align(s_pin_ta, LV_TEXT_ALIGN_CENTER, 0);
+    lv_obj_set_style_bg_color(s_pin_ta, C(0x14171A), 0);
+    lv_obj_set_style_text_color(s_pin_ta, C(COL_TEXT), 0);
+    lv_obj_set_style_border_color(s_pin_ta, C(COL_AMBER), 0);
+    lv_obj_add_event_cb(s_pin_ta, pin_ta_cb, LV_EVENT_VALUE_CHANGED, nullptr);
+    s_pin_msg = label(c, "", &lv_font_montserrat_16, COL_RED);
+
+    lv_obj_t *kb = lv_keyboard_create(s_pin_overlay);
+    lv_obj_add_flag(kb, LV_OBJ_FLAG_FLOATING);
+    lv_obj_set_size(kb, LV_PCT(100), 300);
+    lv_obj_align(kb, LV_ALIGN_BOTTOM_MID, 0, 0);
+    static const char *pin_map[] = {"1", "2", "3", LV_SYMBOL_BACKSPACE, "\n",
+                                    "4", "5", "6", LV_SYMBOL_OK, "\n",
+                                    "7", "8", "9", LV_SYMBOL_CLOSE, "\n",
+                                    "0", ""};
+    static lv_buttonmatrix_ctrl_t pin_ctrl[13];
+    for (int i = 0; i < 13; ++i) pin_ctrl[i] = (lv_buttonmatrix_ctrl_t)(i == 7 ? (1 | LV_BUTTONMATRIX_CTRL_CHECKED) : 1);
+    lv_keyboard_set_map(kb, LV_KEYBOARD_MODE_USER_1, pin_map, pin_ctrl);
+    lv_keyboard_set_mode(kb, LV_KEYBOARD_MODE_USER_1);
+    lv_keyboard_set_textarea(kb, s_pin_ta);
+    lv_obj_set_style_bg_color(kb, C(COL_CARD), 0);
+    lv_obj_set_style_border_width(kb, 0, 0);
+    lv_obj_set_style_pad_all(kb, 6, 0);
+    lv_obj_set_style_pad_gap(kb, 6, 0);
+    lv_obj_set_style_bg_color(kb, C(COL_BTN), LV_PART_ITEMS);
+    lv_obj_set_style_text_color(kb, C(COL_TEXT), LV_PART_ITEMS);
+    lv_obj_set_style_text_font(kb, &lv_font_montserrat_24, LV_PART_ITEMS);
+    lv_obj_set_style_border_width(kb, 0, LV_PART_ITEMS);
+    lv_obj_set_style_shadow_width(kb, 0, LV_PART_ITEMS);
+    lv_obj_set_style_bg_color(kb, C(COL_AMBER_BG), (lv_style_selector_t)LV_PART_ITEMS | LV_STATE_CHECKED);
+    lv_obj_set_style_text_color(kb, C(COL_AMBER_TX), (lv_style_selector_t)LV_PART_ITEMS | LV_STATE_CHECKED);
+    lv_obj_add_event_cb(kb, pin_kb_cb, LV_EVENT_ALL, nullptr);
+    lv_obj_add_flag(s_pin_overlay, LV_OBJ_FLAG_HIDDEN);
+}
+
+// Run action now if unlocked, otherwise after the right PIN is entered
+static void require_pin(void (*action)()) {
+    if (pin_unlocked()) {
+        action();
+        return;
+    }
+    if (!s_pin_overlay) pin_build();
+    lv_textarea_set_text(s_pin_ta, "");
+    lv_label_set_text(s_pin_msg, "");
+    s_pin_action = action;
+    lv_obj_remove_flag(s_pin_overlay, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_move_foreground(s_pin_overlay);
+}
+
+// ---- screen sleep -----------------------------------------------------------------
+
+static lv_obj_t *s_sleep_overlay;
+static bool s_asleep = false;
+
+static void wake() {
+    if (!s_asleep) return;
+    s_asleep = false;
+    lv_obj_add_flag(s_sleep_overlay, LV_OBJ_FLAG_HIDDEN);
+    board::backlight((uint8_t)settings::get().brightness);
+}
+
+static void sleep_now() {
+    s_asleep = true;
+    lv_obj_remove_flag(s_sleep_overlay, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_move_foreground(s_sleep_overlay);
+    board::backlight(0);
+}
+
+// The first tap on a sleeping screen only wakes it; it never presses a button
+static void sleep_overlay_cb(lv_event_t *) { wake(); }
+
+static void go_setup() { lv_screen_load(s_scr[SCR_SETUP]); }
+
 static void nav_cb(lv_event_t *e) {
     int i = (int)(intptr_t)lv_event_get_user_data(e);
+    if (i == SCR_SETUP && lv_screen_active() != s_scr[SCR_SETUP]) {
+        require_pin(go_setup);
+        return;
+    }
     lv_screen_load(s_scr[i]);
 }
 
@@ -484,7 +626,13 @@ static void arm_set(bool on) {
     }
 }
 
-static void arm_cb(lv_event_t *) { arm_set(!s_armed); }
+static void arm_on() { arm_set(true); }
+static void arm_cb(lv_event_t *) {
+    if (s_armed)
+        arm_set(false);
+    else
+        require_pin(arm_on);
+}
 static void arm_timeout(lv_timer_t *) { arm_set(false); }
 
 static void fire_cb(lv_event_t *) {
@@ -658,6 +806,10 @@ static lv_obj_t *s_ssid_ta, *s_pass_ta, *s_ip_ta, *s_scan_dd, *s_scan_lbl, *s_sh
 static lv_obj_t *s_cap_slider, *s_cap_val, *s_bright_slider, *s_bright_val;
 static lv_obj_t *s_wifi_status, *s_panel_ip_lbl, *s_set_err;
 static bool s_scanning = false;
+static const int SLEEP_OPTS[4] = {0, 2, 5, 15};
+static lv_obj_t *s_sleep_btn[4], *s_flip_btn[2], *s_pin_set_ta, *s_tube_lbl, *s_tube_reset_lbl;
+static int s_sleep_i = 2, s_flip_i = 0;
+static uint32_t s_tube_reset_armed = 0;
 
 static void kb_hide() {
     lv_obj_add_flag(s_kb, LV_OBJ_FLAG_HIDDEN);
@@ -672,7 +824,8 @@ static void ta_event_cb(lv_event_t *e) {
     lv_obj_t *ta = (lv_obj_t *)lv_event_get_target(e);
     lv_event_code_t code = lv_event_get_code(e);
     if (code == LV_EVENT_FOCUSED || code == LV_EVENT_CLICKED) {
-        lv_keyboard_set_mode(s_kb, ta == s_ip_ta ? LV_KEYBOARD_MODE_NUMBER : LV_KEYBOARD_MODE_TEXT_LOWER);
+        lv_keyboard_set_mode(s_kb, (ta == s_ip_ta || ta == s_pin_set_ta) ? LV_KEYBOARD_MODE_NUMBER
+                                                                    : LV_KEYBOARD_MODE_TEXT_LOWER);
         lv_keyboard_set_textarea(s_kb, ta);
         lv_obj_remove_flag(s_kb, LV_OBJ_FLAG_HIDDEN);
         lv_obj_add_flag(s_set_nav, LV_OBJ_FLAG_HIDDEN);
@@ -769,6 +922,30 @@ static void scan_cb(lv_event_t *) {
     xTaskCreate(scan_task, "wifi_scan", 6144, nullptr, 3, nullptr);
 }
 
+static void sleep_sel_cb(lv_event_t *e) {
+    s_sleep_i = (int)(intptr_t)lv_event_get_user_data(e);
+    for (int i = 0; i < 4; ++i) select_style(s_sleep_btn[i], i == s_sleep_i);
+}
+
+static void flip_sel_cb(lv_event_t *e) {
+    s_flip_i = (int)(intptr_t)lv_event_get_user_data(e);
+    for (int i = 0; i < 2; ++i) select_style(s_flip_btn[i], i == s_flip_i);
+}
+
+// Two taps within 3 s so the counter can't be cleared by accident
+static void tube_reset_cb(lv_event_t *) {
+    uint32_t now = lv_tick_get();
+    if (s_tube_reset_armed && now - s_tube_reset_armed < 3000) {
+        settings::tube_reset();
+        s_tube_reset_armed = 0;
+        lv_label_set_text(s_tube_reset_lbl, "Reset");
+        toast("Laser on-time reset");
+    } else {
+        s_tube_reset_armed = now;
+        lv_label_set_text(s_tube_reset_lbl, "Sure?");
+    }
+}
+
 static void save_cb(lv_event_t *) {
     kb_hide();
     if (grbl::status().job_active) {
@@ -782,9 +959,13 @@ static void save_cb(lv_event_t *) {
     v.allowed_ip = lv_textarea_get_text(s_ip_ta);
     v.max_power_pct = (int)lv_slider_get_value(s_cap_slider);
     v.brightness = (int)lv_slider_get_value(s_bright_slider);
+    v.sleep_min = SLEEP_OPTS[s_sleep_i];
+    v.flipped = s_flip_i == 1;
+    v.pin = lv_textarea_get_text(s_pin_set_ta);
     const char *err = settings::check_ssid(v.ssid);
     if (!err) err = settings::check_password(v.password);
     if (!err) err = settings::check_ip(v.allowed_ip);
+    if (!err) err = settings::check_pin(v.pin);
     if (err) {
         lv_label_set_text(s_set_err, err);
         lv_obj_remove_flag(s_set_err, LV_OBJ_FLAG_HIDDEN);
@@ -796,6 +977,8 @@ static void save_cb(lv_event_t *) {
         return;
     }
     board::backlight((uint8_t)v.brightness);
+    if (v.flipped != old.flipped) display::set_flipped(v.flipped);
+    if (!v.pin.empty() && v.pin != old.pin) s_unlocked_until = lv_tick_get() + UNLOCK_MS;  // don't lock yourself out
     lv_label_set_text_fmt(s_cap_lbl, "Capped at %d%% (tube safe current)", v.max_power_pct);
     if (s_test_pct > v.max_power_pct) {
         s_test_pct = v.max_power_pct;
@@ -902,6 +1085,50 @@ static void build_setup() {
     lv_label_set_text_fmt(s_cap_val, "%d %%", v.max_power_pct);
     lv_label_set_text_fmt(s_bright_val, "%d %%", v.brightness);
 
+    // Panel
+    lv_obj_t *pn = section(s_set_content, "Panel");
+    label(pn, "Screen sleep", &lv_font_montserrat_14, COL_SUB);
+    lv_obj_t *sl = box(pn, LV_FLEX_FLOW_ROW, 6);
+    static const char *sleep_txt[4] = {"Never", "2 min", "5 min", "15 min"};
+    s_sleep_i = 0;
+    for (int i = 0; i < 4; ++i)
+        if (SLEEP_OPTS[i] == v.sleep_min) s_sleep_i = i;
+    for (int i = 0; i < 4; ++i) {
+        s_sleep_btn[i] = button(sl, sleep_txt[i], COL_CARD, COL_SOFT, &lv_font_montserrat_16, sleep_sel_cb,
+                                (void *)(intptr_t)i, COL_EDGE);
+        lv_obj_set_height(s_sleep_btn[i], 48);
+        lv_obj_set_flex_grow(s_sleep_btn[i], 1);
+        lv_obj_set_style_radius(s_sleep_btn[i], 8, 0);
+        select_style(s_sleep_btn[i], i == s_sleep_i);
+    }
+    label(pn, "Screen orientation", &lv_font_montserrat_14, COL_SUB);
+    lv_obj_t *fl = box(pn, LV_FLEX_FLOW_ROW, 6);
+    static const char *flip_txt[2] = {"Normal", "Flipped"};
+    s_flip_i = v.flipped ? 1 : 0;
+    for (int i = 0; i < 2; ++i) {
+        s_flip_btn[i] = button(fl, flip_txt[i], COL_CARD, COL_SOFT, &lv_font_montserrat_16, flip_sel_cb,
+                               (void *)(intptr_t)i, COL_EDGE);
+        lv_obj_set_height(s_flip_btn[i], 48);
+        lv_obj_set_flex_grow(s_flip_btn[i], 1);
+        lv_obj_set_style_radius(s_flip_btn[i], 8, 0);
+        select_style(s_flip_btn[i], i == s_flip_i);
+    }
+    label(pn, "PIN lock for Setup and test fire (4 digits, blank = off)", &lv_font_montserrat_14, COL_SUB);
+    s_pin_set_ta = text_field(pn, "No PIN");
+    lv_textarea_set_accepted_chars(s_pin_set_ta, "0123456789");
+    lv_textarea_set_max_length(s_pin_set_ta, 4);
+    lv_textarea_set_password_mode(s_pin_set_ta, true);
+    lv_textarea_set_text(s_pin_set_ta, v.pin.c_str());
+    lv_obj_t *tr = box(pn, LV_FLEX_FLOW_ROW, 8);
+    lv_obj_set_flex_align(tr, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_t *tl = label(tr, "Laser on-time", &lv_font_montserrat_20, COL_TEXT);
+    lv_obj_set_flex_grow(tl, 1);
+    s_tube_lbl = label(tr, "0.0 h", &lv_font_montserrat_20, COL_AMBER);
+    lv_obj_t *trb = button(tr, "Reset", COL_BTN, COL_TEXT, &lv_font_montserrat_16, tube_reset_cb, nullptr,
+                           COL_EDGE, &s_tube_reset_lbl);
+    lv_obj_set_size(trb, 84, 44);
+    lv_obj_set_style_radius(trb, 8, 0);
+
     s_set_err = label(s_set_content, "", &lv_font_montserrat_16, COL_RED);
     lv_obj_add_flag(s_set_err, LV_OBJ_FLAG_HIDDEN);
     lv_obj_t *save = button(s_set_content, "Save", COL_AMBER, 0x2A1D04, &lv_font_montserrat_24, save_cb);
@@ -959,6 +1186,36 @@ static void badge_colors(grbl::State s, uint32_t *bg, uint32_t *fg) {
 static void refresh(lv_timer_t *) {
     grbl::Status st = grbl::status();
     net::Info ni = net::info();
+
+    // Laser on-time: count while the laser output is on, save to flash once a minute
+    static uint32_t last_tick = 0, last_flush = 0;
+    uint32_t now = lv_tick_get();
+    uint32_t dt = last_tick ? now - last_tick : 0;
+    last_tick = now;
+    bool firing = st.link_ok && st.spindle_on && st.spindle > 0 && st.state != grbl::State::Hold &&
+                  st.state != grbl::State::Alarm && st.state != grbl::State::Door;
+    if (firing && dt < 2000) settings::tube_add_ms(dt);
+    if (now - last_flush > 60000 || (!st.job_active && now - last_flush > 5000 && !firing)) {
+        last_flush = now;
+        settings::tube_flush();  // no-op when nothing changed
+    }
+    uint32_t secs = settings::tube_seconds();
+    lv_label_set_text_fmt(s_tube_lbl, "%u.%u h", (unsigned)(secs / 3600), (unsigned)(secs % 3600 / 360));
+    if (s_tube_reset_armed && now - s_tube_reset_armed > 3000) {
+        s_tube_reset_armed = 0;
+        lv_label_set_text(s_tube_reset_lbl, "Reset");
+    }
+
+    // Screen sleep: never during a job, hold or alarm; wake when one starts
+    int sleep_min = settings::get().sleep_min;
+    bool busy = st.job_active || st.state == grbl::State::Run || st.state == grbl::State::Hold ||
+                st.state == grbl::State::Door || st.state == grbl::State::Alarm;
+    if (s_asleep && busy) {
+        wake();
+    } else if (!s_asleep && !busy && sleep_min > 0 &&
+               lv_display_get_inactive_time(nullptr) > (uint32_t)sleep_min * 60000u) {
+        sleep_now();
+    }
 
     uint32_t bg, fg;
     badge_colors(st.state, &bg, &fg);
@@ -1081,6 +1338,13 @@ void build() {
     lv_obj_add_flag(s_toast, LV_OBJ_FLAG_HIDDEN);
     s_toast_timer = lv_timer_create(toast_hide, 2500, nullptr);
     lv_timer_pause(s_toast_timer);
+
+    s_sleep_overlay = lv_obj_create(lv_layer_top());
+    lv_obj_remove_style_all(s_sleep_overlay);
+    lv_obj_set_size(s_sleep_overlay, LV_PCT(100), LV_PCT(100));
+    lv_obj_add_flag(s_sleep_overlay, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_event_cb(s_sleep_overlay, sleep_overlay_cb, LV_EVENT_PRESSED, nullptr);
+    lv_obj_add_flag(s_sleep_overlay, LV_OBJ_FLAG_HIDDEN);
 
     lv_timer_create(refresh, 200, nullptr);
     lv_screen_load(s_scr[SCR_STATUS]);

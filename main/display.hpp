@@ -9,6 +9,9 @@ void init();
 bool lock(int timeout_ms = -1);
 void unlock();
 
+// Turn the portrait UI 180 degrees (call with the lock held once LVGL is running)
+void set_flipped(bool flipped);
+
 // Start the LVGL handler task (call after building the UI).
 void start();
 

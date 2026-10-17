@@ -14,6 +14,7 @@
 #include "freertos/task.h"
 #include "lvgl.h"
 #include "sdmmc_cmd.h"
+#include "settings.hpp"
 
 static const char *TAG = "sd_update";
 
@@ -90,7 +91,14 @@ void run() {
         return;
     }
 
+    // Forgotten PIN recovery: an (empty) reset_pin.txt on the card clears the PIN
     struct stat st;
+    if (stat("/sdcard/reset_pin.txt", &st) == 0) {
+        settings::clear_pin();
+        remove("/sdcard/reset_pin.done");
+        rename("/sdcard/reset_pin.txt", "/sdcard/reset_pin.done");
+    }
+
     if (stat(NEW_FW, &st) != 0 || st.st_size <= 0) {
         ESP_LOGI(TAG, "no firmware.bin on the card");
         esp_vfs_fat_sdcard_unmount(MOUNT, card);

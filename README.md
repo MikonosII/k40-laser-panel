@@ -210,6 +210,13 @@ the first Save.
 | LightBurn computer IP | Only this PC may connect; leave blank to allow any device |
 | Panel power cap | Max power for the panel's own test fire / pointer |
 | Brightness | Previews live as you drag |
+| Screen sleep | Never / 2 / 5 / 15 min. The screen goes dark when idle; the first tap only wakes it. Never sleeps during a job, hold or alarm |
+| Screen orientation | **Flipped** turns the UI 180° if the panel is mounted the other way up |
+| PIN lock | 4 digits. Asked for when opening Setup or arming test fire; unlocks both for 5 min. Blank = off |
+| Laser on-time | Hours the laser output has been on (tube wear). **Reset** needs two taps |
+
+**Forgot the PIN?** Put an empty file named `reset_pin.txt` on the SD card and restart; the
+PIN is cleared and the file is renamed `reset_pin.done`.
 
 Tapping a field pops up a small on-screen keyboard (a number pad for the IP). Tap **✓** to
 finish or **✕** to close it. **Save** checks the entries, stores them, and reconnects Wi-Fi if
