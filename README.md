@@ -30,6 +30,8 @@ to the header's own 5V pin, so **pin 3 must have 5V for the link to work**.
 
 Flash the SKR with **[grblhal/](grblhal/README.md)**: a ready-made grblHAL `firmware.bin` (UART on the TFT
 header, laser PWM on the RGB connector, K40 defaults). Copy it to the SKR's SD card and power on.
+Using a full-size **SKR 3 (STM32H723)** instead? See **[grblhal/skr3/](grblhal/skr3/README.md)**: TFT
+header pins PA10/PA9, lid on PWRDET, water on Probe.
 
 ## Lid and water status (optional)
 

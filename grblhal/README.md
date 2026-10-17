@@ -1,5 +1,7 @@
 # grblHAL for the SKR Mini E3 V3 (K40 build)
 
+(For the full-size SKR 3 with an STM32H723, see [skr3/](skr3/README.md).)
+
 Ready-to-flash grblHAL for the K40's BTT SKR Mini E3 V3.0, set up for this panel:
 
 | | |

@@ -1,0 +1,32 @@
+diff --git a/boards/btt_skr_v3.0_map.h b/boards/btt_skr_v3.0_map.h
+index cd8e86a..7e7d790 100644
+--- a/boards/btt_skr_v3.0_map.h
++++ b/boards/btt_skr_v3.0_map.h
+@@ -102,8 +102,13 @@
+ #define M4_ENABLE_PIN               13
+ #endif
+ 
++#ifdef K40_PWM_RGB
++#define AUXOUTPUT0_PORT             GPIOE                       // Laser PWM - RGB header (PE6, 5V buffered)
++#define AUXOUTPUT0_PIN              6
++#else
+ #define AUXOUTPUT0_PORT             GPIOB                       // Spindle PWM - EXP1 - pin 9
+ #define AUXOUTPUT0_PIN              0
++#endif
+ #define AUXOUTPUT1_PORT             GPIOB                       // Spindle direction - FAN2
+ #define AUXOUTPUT1_PIN              5
+ #define AUXOUTPUT2_PORT             GPIOB                       // Spindle enable - FAN1
+@@ -154,8 +159,13 @@
+ #define AUXINPUT1_PIN               13
+ #define AUXINPUT2_PORT              GPIOA                       // Reset - EXP2 - pin 7
+ #define AUXINPUT2_PIN               4
++#if defined(K40_FEEDHOLD_PWRDET) && N_ABC_MOTORS < 2
++#define AUXINPUT3_PORT              GPIOC                       // Feed hold - PWRDET header (PC15): K40 lid switch
++#define AUXINPUT3_PIN               15
++#else
+ #define AUXINPUT3_PORT              GPIOA                       // Feed hold - EXP2 - pin 9
+ #define AUXINPUT3_PIN               5
++#endif
+ #define AUXINPUT4_PORT              GPIOA                       // Cycle start - EXP2 - pin 10
+ #define AUXINPUT4_PIN               6
+ 
