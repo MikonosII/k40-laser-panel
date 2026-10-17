@@ -2,7 +2,7 @@
 
 Shows the laser tube's real current (mA) on the panel, live on the **Status** screen and
 during **test fire** on the Laser screen. It warns above one limit (default 18 mA) and **shuts
-the laser off** above a second, higher one (default 22 mA). Both are set on the **Setup** screen.
+the laser off** above a second, higher one (default 20 mA). Both are set on the **Setup** screen.
 
 It's one small box, built from two breakout boards plus protection parts, with one cable to the
 panel. No off-the-shelf part combines mA sensing, high-voltage isolation and I2C output, so this
@@ -89,7 +89,7 @@ I2C bus. The Setup screen shows *Current sensor connected* when it's found.
   *Panel power cap* from real current instead of guessing
 - **Setup → Tube current warning:** 5–30 mA (default 18). Over it for more than ~0.6 s, the
   panel wakes and shows a warning. It warns only.
-- **Setup → Tube current shut-off:** 6–35 mA (default 22, must be above the warning). Over it for
+- **Setup → Tube current shut-off:** 6–35 mA (default 20, must be above the warning). Over it for
   ~60 ms, the panel **soft-resets grblHAL** (laser off, motion stops, LightBurn's job is dropped)
   and **latches a fault**:
   - The header shows **FAULT** and the Alarms screen explains what tripped and at what current.
