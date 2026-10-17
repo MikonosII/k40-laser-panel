@@ -99,7 +99,7 @@ SSOP-20 and the 0.5 mm-pitch VSSOP-10 yourself.
 | R6–R9 | 4.7 kΩ | 0603 | C23162 |
 | C1, C4 | 10 µF 25 V | 0805 | C15850 |
 | C2, C3, C5–C8 | 100 nF | 0603 | C14663 |
-| D1 | SMAJ5.0CA bidirectional TVS | SMA | C140894 |
+| D1 | SMAJ5.0CA bidirectional TVS | SMA | C10756 |
 | GDT1 | 200 V gas discharge tube (Brightking 4532-201-LF; alt. 150 V 4532-151-LF C84727) | 1812 | C522630 |
 
 Notes:
