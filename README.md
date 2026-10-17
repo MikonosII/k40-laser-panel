@@ -93,10 +93,12 @@ git clone https://github.com/MikonosII/k40-laser-panel.git
 Command Palette → **"ESP-IDF: Set Espressif Device Target"** → **esp32p4** →
 **"ESP32-P4 chip (via builtin USB-JTAG)"** (any option is fine; you'll flash over serial).
 
-### 4. Enter your settings
+### 4. Enter your settings (optional)
 
-Command Palette → **"ESP-IDF: SDK Configuration Editor (menuconfig)"**, open the **K40 panel**
-section, fill in the settings below and click **Save**:
+Everything in this table can also be set later on the panel's **Setup** screen (see
+*On-panel Setup screen* below), so you can skip this step and flash with blank Wi-Fi.
+To pre-fill them instead: Command Palette → **"ESP-IDF: SDK Configuration Editor (menuconfig)"**,
+open the **K40 panel** section, fill in the settings below and click **Save**:
 
 | Setting | What to enter |
 |---|---|
@@ -159,6 +161,24 @@ with Elecrow's *Advance_P4_On-Board_ESP32C6_Firmware* (in their
 [P4 5" GitHub repo](https://github.com/Elecrow-RD/-CrowPanel-Advanced-5inch-ESP32-P4-HMI-AI-Display-800x480-IPS-Touch-Screen),
 under `example/CrowPanel_Advance_ESP32-P4 Display_Firmware_Upgrade_Guide`).
 
+## On-panel Setup screen
+
+The fifth tab, **Setup**, lets you change settings on the panel itself. They're saved in the
+panel's flash and survive reflashing the firmware; the menuconfig values are only used until
+the first Save.
+
+| Setting | Notes |
+|---|---|
+| Wi-Fi name | Type it, or tap **Scan** and pick from the list (2.4 GHz networks only) |
+| Wi-Fi password | Hidden by default; **Show** reveals it |
+| LightBurn computer IP | Only this PC may connect; leave blank to allow any device |
+| Panel power cap | Max power for the panel's own test fire / pointer |
+| Brightness | Previews live as you drag |
+
+Tapping a field pops up a small on-screen keyboard (a number pad for the IP). Tap **✓** to
+finish or **✕** to close it. **Save** checks the entries, stores them, and reconnects Wi-Fi if
+the name or password changed. Saving is blocked while a job is running.
+
 ## LightBurn
 
 Add the laser as a **GRBL** device using the **network (Ethernet/TCP)** connection, address = the
@@ -203,4 +223,5 @@ This was compile-checked, not run on hardware. If something's off:
 | `main/display.*` | RGB panel, GT911 touch, LVGL 9 with portrait rotation |
 | `main/grbl_link.*` | UART to grblHAL, status parsing, LightBurn/panel line arbitration |
 | `main/net_bridge.*` | Wi-Fi station + LightBurn TCP server with IP allowlist |
-| `main/ui.*` | Status, Jog, Laser and Alarms screens |
+| `main/ui.*` | Status, Jog, Laser, Alarms and Setup screens |
+| `main/settings.*` | Settings saved in flash (NVS), with menuconfig values as defaults |

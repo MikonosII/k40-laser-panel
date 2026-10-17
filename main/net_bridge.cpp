@@ -1,5 +1,6 @@
 #include "net_bridge.hpp"
 
+#include <algorithm>
 #include <cstring>
 #include <mutex>
 
@@ -12,6 +13,7 @@
 #include "grbl_link.hpp"
 #include "lwip/sockets.h"
 #include "sdkconfig.h"
+#include "settings.hpp"
 
 static const char *TAG = "net";
 
@@ -29,7 +31,7 @@ Info info() {
 
 static void on_wifi(void *, esp_event_base_t base, int32_t id, void *data) {
     if (base == WIFI_EVENT && id == WIFI_EVENT_STA_START) {
-        esp_wifi_connect();
+        if (!settings::get().ssid.empty()) esp_wifi_connect();
     } else if (base == WIFI_EVENT && id == WIFI_EVENT_STA_DISCONNECTED) {
         {
             std::lock_guard<std::mutex> g(s_mx);
@@ -37,7 +39,7 @@ static void on_wifi(void *, esp_event_base_t base, int32_t id, void *data) {
             s_info.ip.clear();
         }
         vTaskDelay(pdMS_TO_TICKS(1000));
-        esp_wifi_connect();
+        if (!settings::get().ssid.empty()) esp_wifi_connect();
     } else if (base == IP_EVENT && id == IP_EVENT_STA_GOT_IP) {
         auto *ev = (ip_event_got_ip_t *)data;
         char buf[16];
@@ -62,11 +64,47 @@ static void host_write(const uint8_t *data, size_t len) {
 }
 
 static bool allowed(const sockaddr_in &peer) {
-    const char *allow = CONFIG_K40_ALLOWED_IP;
-    if (allow[0] == '\0') return true;
+    std::string allow = settings::get().allowed_ip;  // read live: Setup screen changes apply at once
+    if (allow.empty()) return true;
     char ip[16];
     inet_ntoa_r(peer.sin_addr, ip, sizeof(ip));
-    return strcmp(ip, allow) == 0;
+    return allow == ip;
+}
+
+static void apply_wifi_config() {
+    settings::Values v = settings::get();
+    wifi_config_t wc = {};
+    // Fixed-size fields: a full-length SSID (32) / password (64) has no terminator, by design
+    memcpy(wc.sta.ssid, v.ssid.data(), std::min(v.ssid.size(), sizeof(wc.sta.ssid)));
+    memcpy(wc.sta.password, v.password.data(), std::min(v.password.size(), sizeof(wc.sta.password)));
+    wc.sta.threshold.authmode = v.password.empty() ? WIFI_AUTH_OPEN : WIFI_AUTH_WPA2_PSK;
+    esp_wifi_set_config(WIFI_IF_STA, &wc);
+}
+
+void reconnect() {
+    apply_wifi_config();
+    esp_wifi_disconnect();  // the disconnect handler reconnects with the new credentials
+}
+
+std::vector<std::string> scan() {
+    std::vector<std::string> out;
+    wifi_scan_config_t sc = {};
+    if (esp_wifi_scan_start(&sc, true) != ESP_OK) return out;
+    uint16_t n = 0;
+    esp_wifi_scan_get_ap_num(&n);
+    if (n > 30) n = 30;
+    std::vector<wifi_ap_record_t> recs(n);
+    if (n && esp_wifi_scan_get_ap_records(&n, recs.data()) == ESP_OK) {
+        // Records arrive strongest first; keep the first of each name
+        for (uint16_t i = 0; i < n; ++i) {
+            std::string ssid((const char *)recs[i].ssid);
+            if (ssid.empty()) continue;
+            bool dup = false;
+            for (auto &s : out) dup |= s == ssid;
+            if (!dup) out.push_back(ssid);
+        }
+    }
+    return out;
 }
 
 static void server_task(void *) {
@@ -138,12 +176,8 @@ void init() {
     ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, on_wifi, nullptr));
     ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, on_wifi, nullptr));
 
-    wifi_config_t wc = {};
-    strncpy((char *)wc.sta.ssid, CONFIG_K40_WIFI_SSID, sizeof(wc.sta.ssid));
-    strncpy((char *)wc.sta.password, CONFIG_K40_WIFI_PASSWORD, sizeof(wc.sta.password));
-    wc.sta.threshold.authmode = CONFIG_K40_WIFI_PASSWORD[0] ? WIFI_AUTH_WPA2_PSK : WIFI_AUTH_OPEN;
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
-    ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wc));
+    apply_wifi_config();
     ESP_ERROR_CHECK(esp_wifi_start());
     esp_wifi_set_ps(WIFI_PS_NONE);  // power save adds latency spikes to the stream
 

@@ -12,6 +12,7 @@
 #include "freertos/task.h"
 #include "lvgl.h"
 #include "sdkconfig.h"
+#include "settings.hpp"
 
 static const char *TAG = "display";
 
@@ -170,7 +171,7 @@ void init() {
     lv_indev_set_display(indev, disp);
 
     // Backlight on only once there's something to show
-    board::backlight((uint8_t)CONFIG_K40_BACKLIGHT_PCT);
+    board::backlight((uint8_t)settings::get().brightness);
 }
 
 static void lvgl_task(void *) {

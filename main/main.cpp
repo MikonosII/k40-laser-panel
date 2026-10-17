@@ -4,6 +4,7 @@
 #include "esp_log.h"
 #include "grbl_link.hpp"
 #include "net_bridge.hpp"
+#include "settings.hpp"
 #include "nvs_flash.h"
 #include "ui.hpp"
 
@@ -14,6 +15,7 @@ extern "C" void app_main(void) {
         ESP_ERROR_CHECK(nvs_flash_init());
     }
 
+    settings::init();
     board::init();
     display::init();
     grbl::init();

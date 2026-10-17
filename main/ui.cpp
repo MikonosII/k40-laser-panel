@@ -4,11 +4,17 @@
 
 #include <cstdio>
 #include <string>
+#include <vector>
 
+#include "board.hpp"
+#include "display.hpp"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include "grbl_link.hpp"
 #include "lvgl.h"
 #include "net_bridge.hpp"
 #include "sdkconfig.h"
+#include "settings.hpp"
 
 namespace ui {
 
@@ -35,7 +41,7 @@ static lv_color_t C(uint32_t hex) { return lv_color_hex(hex); }
 #define COL_BLUE_EDGE 0x4FB3D9
 #define COL_GRAY_BG 0x2A2D33
 
-enum Screen { SCR_STATUS, SCR_JOG, SCR_LASER, SCR_ALARMS, SCR_COUNT };
+enum Screen { SCR_STATUS, SCR_JOG, SCR_LASER, SCR_ALARMS, SCR_SETUP, SCR_COUNT };
 
 struct Header {
     lv_obj_t *badge, *badge_lbl, *pos, *link, *dot;
@@ -61,7 +67,7 @@ static const int DUR_MS[] = {50, 200, 1000};
 static int s_test_pct = 10, s_dur_i = 1;
 static bool s_armed = false, s_exhaust = false;
 static lv_obj_t *s_test_lbl, *s_dur_btn[3], *s_arm_btn, *s_arm_lbl, *s_fire_btn;
-static lv_obj_t *s_lid_lbl, *s_water_lbl;
+static lv_obj_t *s_lid_lbl, *s_water_lbl, *s_cap_lbl;
 static lv_obj_t *s_exh_lbl;
 static lv_timer_t *s_arm_timer;
 // Alarms
@@ -208,10 +214,10 @@ static lv_obj_t *make_content(lv_obj_t *scr) {
     return c;
 }
 
-static void make_nav(lv_obj_t *scr, Screen active) {
-    static const char *names[SCR_COUNT] = {"Status", "Jog", "Laser", "Alarms"};
+static lv_obj_t *make_nav(lv_obj_t *scr, Screen active) {
+    static const char *names[SCR_COUNT] = {"Status", "Jog", "Laser", "Alarms", "Setup"};
     static const char *icons[SCR_COUNT] = {LV_SYMBOL_HOME, LV_SYMBOL_GPS, LV_SYMBOL_CHARGE,
-                                           LV_SYMBOL_WARNING};
+                                           LV_SYMBOL_WARNING, LV_SYMBOL_SETTINGS};
     lv_obj_t *nav = box(scr, LV_FLEX_FLOW_ROW, 6);
     lv_obj_set_height(nav, 84);
     lv_obj_set_style_pad_all(nav, 8, 0);
@@ -230,6 +236,7 @@ static void make_nav(lv_obj_t *scr, Screen active) {
         lv_obj_set_flex_grow(b, 1);
         lv_obj_set_style_text_align(lv_obj_get_child(b, 0), LV_TEXT_ALIGN_CENTER, 0);
     }
+    return nav;
 }
 
 // ---- Status -----------------------------------------------------------------
@@ -451,7 +458,8 @@ static void build_jog() {
 static void test_adj_cb(lv_event_t *e) {
     s_test_pct += (int)(intptr_t)lv_event_get_user_data(e);
     if (s_test_pct < 0) s_test_pct = 0;
-    if (s_test_pct > CONFIG_K40_MAX_POWER_PCT) s_test_pct = CONFIG_K40_MAX_POWER_PCT;
+    int cap = settings::get().max_power_pct;
+    if (s_test_pct > cap) s_test_pct = cap;
     lv_label_set_text_fmt(s_test_lbl, "%d %%", s_test_pct);
 }
 
@@ -527,9 +535,8 @@ static void build_laser() {
         lv_obj_set_flex_grow(b, 1);
         lv_obj_set_style_radius(b, 8, 0);
     }
-    char cap[48];
-    snprintf(cap, sizeof(cap), "Capped at %d%% (tube safe current)", CONFIG_K40_MAX_POWER_PCT);
-    label(pw, cap, &lv_font_montserrat_14, COL_SUB);
+    s_cap_lbl = label(pw, "", &lv_font_montserrat_14, COL_SUB);
+    lv_label_set_text_fmt(s_cap_lbl, "Capped at %d%% (tube safe current)", settings::get().max_power_pct);
 
     lv_obj_t *durs = box(c, LV_FLEX_FLOW_ROW, 6);
     static const char *dtxt[3] = {"50 ms", "200 ms", "1 s"};
@@ -643,6 +650,288 @@ static void build_alarms() {
     make_nav(scr, SCR_ALARMS);
 }
 
+// ---- Setup ------------------------------------------------------------------
+
+static lv_obj_t *s_kb, *s_set_nav, *s_set_content;
+static lv_obj_t *s_ssid_ta, *s_pass_ta, *s_ip_ta, *s_scan_dd, *s_scan_lbl, *s_show_lbl;
+static lv_obj_t *s_cap_slider, *s_cap_val, *s_bright_slider, *s_bright_val;
+static lv_obj_t *s_wifi_status, *s_panel_ip_lbl, *s_set_err;
+static bool s_scanning = false;
+
+static void kb_hide() {
+    lv_obj_add_flag(s_kb, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_remove_flag(s_set_nav, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_t *ta = lv_keyboard_get_textarea(s_kb);
+    if (ta) lv_obj_remove_state(ta, LV_STATE_FOCUSED);
+    lv_keyboard_set_textarea(s_kb, nullptr);
+}
+
+// Tapping a field pops the keyboard up under it; the nav bar hides to make room
+static void ta_event_cb(lv_event_t *e) {
+    lv_obj_t *ta = (lv_obj_t *)lv_event_get_target(e);
+    lv_event_code_t code = lv_event_get_code(e);
+    if (code == LV_EVENT_FOCUSED || code == LV_EVENT_CLICKED) {
+        lv_keyboard_set_mode(s_kb, ta == s_ip_ta ? LV_KEYBOARD_MODE_NUMBER : LV_KEYBOARD_MODE_TEXT_LOWER);
+        lv_keyboard_set_textarea(s_kb, ta);
+        lv_obj_remove_flag(s_kb, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_add_flag(s_set_nav, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_update_layout(s_set_content);
+        lv_obj_scroll_to_view_recursive(ta, LV_ANIM_ON);
+        lv_obj_add_state(ta, LV_STATE_FOCUSED);
+    }
+}
+
+static void kb_event_cb(lv_event_t *e) {
+    lv_event_code_t code = lv_event_get_code(e);
+    if (code == LV_EVENT_READY || code == LV_EVENT_CANCEL) kb_hide();
+}
+
+static lv_obj_t *text_field(lv_obj_t *parent, const char *placeholder) {
+    lv_obj_t *ta = lv_textarea_create(parent);
+    lv_textarea_set_one_line(ta, true);
+    lv_textarea_set_placeholder_text(ta, placeholder);
+    lv_obj_set_width(ta, LV_PCT(100));
+    lv_obj_set_height(ta, 52);
+    lv_obj_set_style_bg_color(ta, C(0x14171A), 0);
+    lv_obj_set_style_bg_opa(ta, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_color(ta, C(COL_EDGE), 0);
+    lv_obj_set_style_border_color(ta, C(COL_AMBER), LV_STATE_FOCUSED);
+    lv_obj_set_style_border_width(ta, 1, 0);
+    lv_obj_set_style_radius(ta, 8, 0);
+    lv_obj_set_style_text_color(ta, C(COL_TEXT), 0);
+    lv_obj_set_style_text_font(ta, &lv_font_montserrat_20, 0);
+    lv_obj_set_style_text_color(ta, C(COL_SUB), LV_PART_TEXTAREA_PLACEHOLDER);
+    lv_obj_set_style_pad_hor(ta, 12, 0);
+    lv_obj_set_style_pad_ver(ta, 12, 0);
+    lv_obj_add_event_cb(ta, ta_event_cb, LV_EVENT_ALL, nullptr);
+    return ta;
+}
+
+static void style_slider(lv_obj_t *s) {
+    lv_obj_set_width(s, LV_PCT(100));
+    lv_obj_set_height(s, 10);
+    lv_obj_set_style_bg_color(s, C(COL_BTN), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(s, C(COL_AMBER), LV_PART_INDICATOR);
+    lv_obj_set_style_bg_color(s, C(COL_AMBER), LV_PART_KNOB);
+    lv_obj_set_style_pad_all(s, 10, LV_PART_KNOB);
+    lv_obj_set_style_margin_ver(s, 12, 0);  // bigger touch area for the knob
+}
+
+static void cap_slider_cb(lv_event_t *) {
+    lv_label_set_text_fmt(s_cap_val, "%d %%", (int)lv_slider_get_value(s_cap_slider));
+}
+
+static void bright_slider_cb(lv_event_t *e) {
+    int v = (int)lv_slider_get_value(s_bright_slider);
+    lv_label_set_text_fmt(s_bright_val, "%d %%", v);
+    if (lv_event_get_code(e) == LV_EVENT_RELEASED) board::backlight((uint8_t)v);  // live preview
+}
+
+static void show_pass_cb(lv_event_t *) {
+    bool hidden = lv_textarea_get_password_mode(s_pass_ta);
+    lv_textarea_set_password_mode(s_pass_ta, !hidden);
+    lv_label_set_text(s_show_lbl, hidden ? "Hide" : "Show");
+}
+
+static void scan_pick_cb(lv_event_t *) {
+    char buf[40];
+    lv_dropdown_get_selected_str(s_scan_dd, buf, sizeof(buf));
+    lv_textarea_set_text(s_ssid_ta, buf);
+}
+
+static void scan_task(void *) {
+    std::vector<std::string> found = net::scan();
+    display::lock();
+    if (found.empty()) {
+        toast("No networks found");
+    } else {
+        std::string opts;
+        for (size_t i = 0; i < found.size(); ++i) {
+            if (i) opts += '\n';
+            opts += found[i];
+        }
+        lv_dropdown_set_options(s_scan_dd, opts.c_str());
+        lv_obj_remove_flag(s_scan_dd, LV_OBJ_FLAG_HIDDEN);
+        lv_dropdown_open(s_scan_dd);
+    }
+    lv_label_set_text(s_scan_lbl, "Scan");
+    s_scanning = false;
+    display::unlock();
+    vTaskDelete(nullptr);
+}
+
+static void scan_cb(lv_event_t *) {
+    if (s_scanning) return;
+    s_scanning = true;
+    kb_hide();
+    lv_label_set_text(s_scan_lbl, "...");
+    xTaskCreate(scan_task, "wifi_scan", 6144, nullptr, 3, nullptr);
+}
+
+static void save_cb(lv_event_t *) {
+    kb_hide();
+    if (grbl::status().job_active) {
+        toast("Can't change settings during a job");
+        return;
+    }
+    settings::Values old = settings::get();
+    settings::Values v = old;
+    v.ssid = lv_textarea_get_text(s_ssid_ta);
+    v.password = lv_textarea_get_text(s_pass_ta);
+    v.allowed_ip = lv_textarea_get_text(s_ip_ta);
+    v.max_power_pct = (int)lv_slider_get_value(s_cap_slider);
+    v.brightness = (int)lv_slider_get_value(s_bright_slider);
+    const char *err = settings::check_ssid(v.ssid);
+    if (!err) err = settings::check_password(v.password);
+    if (!err) err = settings::check_ip(v.allowed_ip);
+    if (err) {
+        lv_label_set_text(s_set_err, err);
+        lv_obj_remove_flag(s_set_err, LV_OBJ_FLAG_HIDDEN);
+        return;
+    }
+    lv_obj_add_flag(s_set_err, LV_OBJ_FLAG_HIDDEN);
+    if (!settings::save(v)) {
+        toast("Save failed");
+        return;
+    }
+    board::backlight((uint8_t)v.brightness);
+    lv_label_set_text_fmt(s_cap_lbl, "Capped at %d%% (tube safe current)", v.max_power_pct);
+    if (s_test_pct > v.max_power_pct) {
+        s_test_pct = v.max_power_pct;
+        lv_label_set_text_fmt(s_test_lbl, "%d %%", s_test_pct);
+    }
+    if (v.ssid != old.ssid || v.password != old.password) {
+        net::reconnect();
+        toast("Saved - reconnecting Wi-Fi");
+    } else {
+        toast("Saved");
+    }
+}
+
+static lv_obj_t *section(lv_obj_t *parent, const char *title) {
+    lv_obj_t *c = card(parent);
+    label(c, title, &lv_font_montserrat_16, COL_SUB);
+    return c;
+}
+
+static void build_setup() {
+    settings::Values v = settings::get();
+    lv_obj_t *scr = make_screen(SCR_SETUP);
+    s_set_content = make_content(scr);
+    lv_obj_add_flag(s_set_content, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_scroll_dir(s_set_content, LV_DIR_VER);
+    lv_obj_set_style_pad_bottom(s_set_content, 24, 0);
+
+    // Wi-Fi
+    lv_obj_t *wifi = section(s_set_content, "Wi-Fi (2.4 GHz)");
+    s_wifi_status = label(wifi, "", &lv_font_montserrat_14, COL_SOFT);
+    label(wifi, "Network name", &lv_font_montserrat_14, COL_SUB);
+    lv_obj_t *row = box(wifi, LV_FLEX_FLOW_ROW, 8);
+    s_ssid_ta = text_field(row, "Wi-Fi name");
+    lv_obj_set_flex_grow(s_ssid_ta, 1);
+    lv_obj_set_width(s_ssid_ta, 1);
+    lv_obj_t *sb = button(row, "Scan", COL_BTN, COL_TEXT, &lv_font_montserrat_16, scan_cb, nullptr, COL_EDGE,
+                          &s_scan_lbl);
+    lv_obj_set_size(sb, 84, 52);
+    lv_obj_set_style_radius(sb, 8, 0);
+    s_scan_dd = lv_dropdown_create(wifi);
+    lv_obj_set_width(s_scan_dd, LV_PCT(100));
+    lv_dropdown_set_text(s_scan_dd, "Pick a network");
+    lv_obj_set_style_bg_color(s_scan_dd, C(COL_BTN), 0);
+    lv_obj_set_style_text_color(s_scan_dd, C(COL_TEXT), 0);
+    lv_obj_set_style_border_color(s_scan_dd, C(COL_EDGE), 0);
+    lv_obj_t *list = lv_dropdown_get_list(s_scan_dd);
+    lv_obj_set_style_bg_color(list, C(COL_BTN), 0);
+    lv_obj_set_style_text_color(list, C(COL_TEXT), 0);
+    lv_obj_set_style_text_font(list, &lv_font_montserrat_20, 0);
+    lv_obj_add_event_cb(s_scan_dd, scan_pick_cb, LV_EVENT_VALUE_CHANGED, nullptr);
+    lv_obj_add_flag(s_scan_dd, LV_OBJ_FLAG_HIDDEN);
+    lv_textarea_set_text(s_ssid_ta, v.ssid.c_str());
+
+    label(wifi, "Password", &lv_font_montserrat_14, COL_SUB);
+    lv_obj_t *prow = box(wifi, LV_FLEX_FLOW_ROW, 8);
+    s_pass_ta = text_field(prow, "Wi-Fi password");
+    lv_obj_set_flex_grow(s_pass_ta, 1);
+    lv_obj_set_width(s_pass_ta, 1);
+    lv_textarea_set_password_mode(s_pass_ta, true);
+    lv_textarea_set_text(s_pass_ta, v.password.c_str());
+    lv_obj_t *show = button(prow, "Show", COL_BTN, COL_TEXT, &lv_font_montserrat_16, show_pass_cb, nullptr,
+                            COL_EDGE, &s_show_lbl);
+    lv_obj_set_size(show, 84, 52);
+    lv_obj_set_style_radius(show, 8, 0);
+
+    // LightBurn
+    lv_obj_t *lb = section(s_set_content, "LightBurn computer");
+    label(lb, "Only accept this IP (blank = any)", &lv_font_montserrat_14, COL_SUB);
+    s_ip_ta = text_field(lb, "192.168.1.50");
+    lv_textarea_set_accepted_chars(s_ip_ta, "0123456789.");
+    lv_textarea_set_max_length(s_ip_ta, 15);
+    lv_textarea_set_text(s_ip_ta, v.allowed_ip.c_str());
+    s_panel_ip_lbl = label(lb, "", &lv_font_montserrat_14, COL_SOFT);
+    lv_obj_set_width(s_panel_ip_lbl, LV_PCT(100));
+    lv_label_set_long_mode(s_panel_ip_lbl, LV_LABEL_LONG_WRAP);
+
+    // Laser & display
+    lv_obj_t *ld = section(s_set_content, "Laser and display");
+    lv_obj_t *r1 = box(ld, LV_FLEX_FLOW_ROW, 0);
+    lv_obj_set_flex_align(r1, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    label(r1, "Panel power cap", &lv_font_montserrat_20, COL_TEXT);
+    s_cap_val = label(r1, "", &lv_font_montserrat_20, COL_AMBER);
+    s_cap_slider = lv_slider_create(ld);
+    style_slider(s_cap_slider);
+    lv_slider_set_range(s_cap_slider, 1, 100);
+    lv_slider_set_value(s_cap_slider, v.max_power_pct, LV_ANIM_OFF);
+    lv_obj_add_event_cb(s_cap_slider, cap_slider_cb, LV_EVENT_VALUE_CHANGED, nullptr);
+    lv_obj_t *r2 = box(ld, LV_FLEX_FLOW_ROW, 0);
+    lv_obj_set_flex_align(r2, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    label(r2, "Brightness", &lv_font_montserrat_20, COL_TEXT);
+    s_bright_val = label(r2, "", &lv_font_montserrat_20, COL_SOFT);
+    s_bright_slider = lv_slider_create(ld);
+    style_slider(s_bright_slider);
+    lv_slider_set_range(s_bright_slider, 10, 100);
+    lv_slider_set_value(s_bright_slider, v.brightness, LV_ANIM_OFF);
+    lv_obj_add_event_cb(s_bright_slider, bright_slider_cb, LV_EVENT_VALUE_CHANGED, nullptr);
+    lv_obj_add_event_cb(s_bright_slider, bright_slider_cb, LV_EVENT_RELEASED, nullptr);
+    lv_label_set_text_fmt(s_cap_val, "%d %%", v.max_power_pct);
+    lv_label_set_text_fmt(s_bright_val, "%d %%", v.brightness);
+
+    s_set_err = label(s_set_content, "", &lv_font_montserrat_16, COL_RED);
+    lv_obj_add_flag(s_set_err, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_t *save = button(s_set_content, "Save", COL_AMBER, 0x2A1D04, &lv_font_montserrat_24, save_cb);
+    lv_obj_set_size(save, LV_PCT(100), 64);
+    lv_obj_set_style_radius(save, 10, 0);
+
+    // Small pop-up keyboard: sits between the content and the nav bar, hidden until a field is tapped
+    s_kb = lv_keyboard_create(scr);
+    lv_obj_set_size(s_kb, LV_PCT(100), 260);
+    lv_obj_set_style_bg_color(s_kb, C(COL_CARD), 0);
+    lv_obj_set_style_border_width(s_kb, 0, 0);
+    lv_obj_set_style_pad_all(s_kb, 6, 0);
+    lv_obj_set_style_pad_gap(s_kb, 6, 0);
+    lv_obj_set_style_bg_color(s_kb, C(COL_BTN), LV_PART_ITEMS);
+    lv_obj_set_style_text_color(s_kb, C(COL_TEXT), LV_PART_ITEMS);
+    lv_obj_set_style_text_font(s_kb, &lv_font_montserrat_20, LV_PART_ITEMS);
+    lv_obj_set_style_border_width(s_kb, 0, LV_PART_ITEMS);
+    lv_obj_set_style_radius(s_kb, 6, LV_PART_ITEMS);
+    lv_obj_set_style_shadow_width(s_kb, 0, LV_PART_ITEMS);
+    lv_obj_set_style_bg_color(s_kb, C(COL_AMBER_BG), (lv_style_selector_t)LV_PART_ITEMS | LV_STATE_CHECKED);
+    lv_obj_set_style_text_color(s_kb, C(COL_AMBER_TX), (lv_style_selector_t)LV_PART_ITEMS | LV_STATE_CHECKED);
+    // IP-friendly number pad: no +/- key, close and done on the right edge
+    static const char *num_map[] = {"1", "2", "3", LV_SYMBOL_CLOSE, "\n",
+                                    "4", "5", "6", LV_SYMBOL_OK, "\n",
+                                    "7", "8", "9", LV_SYMBOL_BACKSPACE, "\n",
+                                    LV_SYMBOL_LEFT, "0", ".", LV_SYMBOL_RIGHT, ""};
+    const lv_buttonmatrix_ctrl_t W1 = (lv_buttonmatrix_ctrl_t)1;  // width 1
+    const lv_buttonmatrix_ctrl_t OK = (lv_buttonmatrix_ctrl_t)(1 | LV_BUTTONMATRIX_CTRL_CHECKED);
+    static lv_buttonmatrix_ctrl_t num_ctrl[16];
+    for (int i = 0; i < 16; ++i) num_ctrl[i] = i == 7 ? OK : W1;
+    lv_keyboard_set_map(s_kb, LV_KEYBOARD_MODE_NUMBER, num_map, num_ctrl);
+    lv_obj_add_event_cb(s_kb, kb_event_cb, LV_EVENT_ALL, nullptr);
+    lv_obj_add_flag(s_kb, LV_OBJ_FLAG_HIDDEN);
+
+    s_set_nav = make_nav(scr, SCR_SETUP);
+}
+
 // ---- live refresh -----------------------------------------------------------
 
 static void badge_colors(grbl::State s, uint32_t *bg, uint32_t *fg) {
@@ -742,6 +1031,17 @@ static void refresh(lv_timer_t *) {
         lv_obj_set_style_text_color(s_alarm_title, C(COL_SOFT), 0);
         s_last_alarm = 0;
     }
+    // Setup
+    if (ni.wifi_up)
+        lv_label_set_text_fmt(s_wifi_status, "Connected to %s  -  %s", settings::get().ssid.c_str(), ni.ip.c_str());
+    else
+        lv_label_set_text(s_wifi_status, settings::get().ssid.empty() ? "Not set up" : "Not connected");
+    if (ni.wifi_up)
+        lv_label_set_text_fmt(s_panel_ip_lbl, "In LightBurn, connect to %s port %d", ni.ip.c_str(),
+                              CONFIG_K40_TELNET_PORT);
+    else
+        lv_label_set_text(s_panel_ip_lbl, "Panel IP appears here once Wi-Fi connects");
+
     std::string text;
     for (const std::string &l : grbl::console()) {
         text += l;
@@ -755,6 +1055,7 @@ void build() {
     build_jog();
     build_laser();
     build_alarms();
+    build_setup();
 
     s_toast = lv_label_create(lv_layer_top());
     lv_obj_set_style_bg_color(s_toast, C(0x2A2D33), 0);
