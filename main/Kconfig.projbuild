@@ -63,6 +63,13 @@ menu "K40 panel"
             int "Default tube current warning limit (mA)"
             range 5 40
             default 18
+        config K40_MA_TRIP
+            int "Default tube current shut-off limit (mA)"
+            range 5 40
+            default 22
+            help
+                Above this for ~60 ms the panel soft-resets grblHAL (laser off,
+                motion stops) and latches a fault until cleared on the panel.
         config K40_EXHAUST_AUX_PORT
             int "Exhaust aux output (M64/M65 P#), -1 = hide button"
             range -1 7

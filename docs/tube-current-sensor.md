@@ -1,8 +1,8 @@
 # Tube current sensor (optional)
 
 Shows the laser tube's real current (mA) on the panel, live on the **Status** screen and
-during **test fire** on the Laser screen. It warns when the current goes over the limit set on
-the **Setup** screen (default 18 mA).
+during **test fire** on the Laser screen. It warns above one limit (default 18 mA) and **shuts
+the laser off** above a second, higher one (default 22 mA). Both are set on the **Setup** screen.
 
 It's one small box, built from two breakout boards plus protection parts, with one cable to the
 panel. No off-the-shelf part combines mA sensing, high-voltage isolation and I2C output, so this
@@ -88,5 +88,16 @@ I2C bus. The Setup screen shows *Current sensor connected* when it's found.
 - **Laser screen:** "Measured: x mA now, y mA peak" after a test fire, so you can set
   *Panel power cap* from real current instead of guessing
 - **Setup → Tube current warning:** 5–30 mA (default 18). Over it for more than ~0.6 s, the
-  panel wakes and shows a warning. It warns only; it doesn't stop the job.
+  panel wakes and shows a warning. It warns only.
+- **Setup → Tube current shut-off:** 6–35 mA (default 22, must be above the warning). Over it for
+  ~60 ms, the panel **soft-resets grblHAL** (laser off, motion stops, LightBurn's job is dropped)
+  and **latches a fault**:
+  - The header shows **FAULT** and the Alarms screen explains what tripped and at what current.
+  - Test fire and the pointer are blocked, and if the laser fires over the limit again it's
+    stopped again.
+  - **Clear tube current fault** on the Alarms screen releases it (asks for the PIN if one is set).
+
+The shut-off is a software trip through the panel and grblHAL, typically reacting in well under
+0.2 s. It adds protection for the tube, but it doesn't replace the K40's own hardware interlocks
+(lid and water on the PSU's P–G loop), which still cut the beam directly.
 - A different shunt? Set *menuconfig → K40 panel → Laser → Tube current sensor shunt*.

@@ -74,7 +74,8 @@ static lv_obj_t *s_lid_lbl, *s_water_lbl, *s_cap_lbl, *s_ma_lbl;
 static lv_obj_t *s_exh_lbl;
 static lv_timer_t *s_arm_timer;
 // Alarms
-static lv_obj_t *s_alarm_card, *s_alarm_title, *s_alarm_desc, *s_console;
+static lv_obj_t *s_alarm_card, *s_alarm_title, *s_alarm_desc, *s_console, *s_fault_btn;
+static bool s_fault_shown = false;
 static int s_last_alarm = 0;
 
 // ---- small builders ---------------------------------------------------------
@@ -501,6 +502,10 @@ static void speed_cb(lv_event_t *e) {
 static void line_cb(lv_event_t *e) { panel_send((const char *)lv_event_get_user_data(e)); }
 
 static void pointer_set(bool on) {
+    if (on && ma_sensor::get().fault) {
+        toast("Tube current fault - clear it on Alarms first");
+        return;
+    }
     if (on) {
         char cmd[24];
         int s = CONFIG_K40_S_MAX * CONFIG_K40_POINTER_PCT / 100;
@@ -637,6 +642,10 @@ static void arm_cb(lv_event_t *) {
 static void arm_timeout(lv_timer_t *) { arm_set(false); }
 
 static void fire_cb(lv_event_t *) {
+    if (ma_sensor::get().fault) {
+        toast("Tube current fault - clear it on Alarms first");
+        return;
+    }
     if (!s_armed) {
         toast("Tap Arm first");
         return;
@@ -768,6 +777,13 @@ static const char *alarm_text(int code, const char **desc) {
 
 static void reset_cb(lv_event_t *) { grbl::panel_stop(); }
 
+static void clear_fault_now() {
+    ma_sensor::clear_fault();
+    s_fault_shown = false;
+    toast("Fault cleared");
+}
+static void clear_fault_cb(lv_event_t *) { require_pin(clear_fault_now); }
+
 static void build_alarms() {
     lv_obj_t *scr = make_screen(SCR_ALARMS);
     lv_obj_t *c = make_content(scr);
@@ -780,6 +796,10 @@ static void build_alarms() {
     s_alarm_desc = label(s_alarm_card, "", &lv_font_montserrat_16, 0xE3C4C4);
     lv_obj_set_width(s_alarm_desc, LV_PCT(100));
     lv_label_set_long_mode(s_alarm_desc, LV_LABEL_LONG_WRAP);
+
+    s_fault_btn = button(c, "Clear tube current fault", COL_RED_BG, COL_RED, &lv_font_montserrat_20, clear_fault_cb);
+    lv_obj_set_size(s_fault_btn, LV_PCT(100), 64);
+    lv_obj_add_flag(s_fault_btn, LV_OBJ_FLAG_HIDDEN);
 
     static const char *home = "$H", *unlock = "$X";
     lv_obj_t *hb = button(c, "Home", COL_AMBER, 0x2A1D04, &lv_font_montserrat_24, line_cb, (void *)home);
@@ -878,7 +898,10 @@ static void cap_slider_cb(lv_event_t *) {
     lv_label_set_text_fmt(s_cap_val, "%d %%", (int)lv_slider_get_value(s_cap_slider));
 }
 
-static lv_obj_t *s_malimit_slider, *s_malimit_val;
+static lv_obj_t *s_malimit_slider, *s_malimit_val, *s_matrip_slider, *s_matrip_val;
+static void matrip_slider_cb(lv_event_t *) {
+    lv_label_set_text_fmt(s_matrip_val, "%d mA", (int)lv_slider_get_value(s_matrip_slider));
+}
 static void malimit_slider_cb(lv_event_t *) {
     lv_label_set_text_fmt(s_malimit_val, "%d mA", (int)lv_slider_get_value(s_malimit_slider));
 }
@@ -969,12 +992,14 @@ static void save_cb(lv_event_t *) {
     v.brightness = (int)lv_slider_get_value(s_bright_slider);
     v.sleep_min = SLEEP_OPTS[s_sleep_i];
     v.ma_limit = (int)lv_slider_get_value(s_malimit_slider);
+    v.ma_trip = (int)lv_slider_get_value(s_matrip_slider);
     v.flipped = s_flip_i == 1;
     v.pin = lv_textarea_get_text(s_pin_set_ta);
     const char *err = settings::check_ssid(v.ssid);
     if (!err) err = settings::check_password(v.password);
     if (!err) err = settings::check_ip(v.allowed_ip);
     if (!err) err = settings::check_pin(v.pin);
+    if (!err && v.ma_trip <= v.ma_limit) err = "Shut-off must be higher than the warning";
     if (err) {
         lv_label_set_text(s_set_err, err);
         lv_obj_remove_flag(s_set_err, LV_OBJ_FLAG_HIDDEN);
@@ -987,6 +1012,7 @@ static void save_cb(lv_event_t *) {
     }
     board::backlight((uint8_t)v.brightness);
     if (v.flipped != old.flipped) display::set_flipped(v.flipped);
+    ma_sensor::set_trip_limit(v.ma_trip);
     if (!v.pin.empty() && v.pin != old.pin) s_unlocked_until = lv_tick_get() + UNLOCK_MS;  // don't lock yourself out
     lv_label_set_text_fmt(s_cap_lbl, "Capped at %d%% (tube safe current)", v.max_power_pct);
     if (s_test_pct > v.max_power_pct) {
@@ -1091,6 +1117,18 @@ static void build_setup() {
     lv_slider_set_value(s_malimit_slider, v.ma_limit, LV_ANIM_OFF);
     lv_obj_add_event_cb(s_malimit_slider, malimit_slider_cb, LV_EVENT_VALUE_CHANGED, nullptr);
     lv_label_set_text_fmt(s_malimit_val, "%d mA", v.ma_limit);
+    lv_obj_t *rt = box(ld, LV_FLEX_FLOW_ROW, 0);
+    lv_obj_set_flex_align(rt, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    label(rt, "Tube current shut-off", &lv_font_montserrat_20, COL_TEXT);
+    s_matrip_val = label(rt, "", &lv_font_montserrat_20, COL_RED);
+    s_matrip_slider = lv_slider_create(ld);
+    style_slider(s_matrip_slider);
+    lv_obj_set_style_bg_color(s_matrip_slider, C(0xE24B4A), LV_PART_INDICATOR);
+    lv_obj_set_style_bg_color(s_matrip_slider, C(0xE24B4A), LV_PART_KNOB);
+    lv_slider_set_range(s_matrip_slider, 6, 35);
+    lv_slider_set_value(s_matrip_slider, v.ma_trip, LV_ANIM_OFF);
+    lv_obj_add_event_cb(s_matrip_slider, matrip_slider_cb, LV_EVENT_VALUE_CHANGED, nullptr);
+    lv_label_set_text_fmt(s_matrip_val, "%d mA", v.ma_trip);
     label(ld, ma_sensor::get().present ? "Current sensor connected" : "No current sensor fitted (optional)",
           &lv_font_montserrat_14, COL_SUB);
     lv_obj_t *r2 = box(ld, LV_FLEX_FLOW_ROW, 0);
@@ -1240,6 +1278,11 @@ static void refresh(lv_timer_t *) {
 
     uint32_t bg, fg;
     badge_colors(st.state, &bg, &fg);
+    bool fault = ma_sensor::get().fault;
+    if (fault) {
+        bg = COL_RED_BG;
+        fg = COL_RED;
+    }
     const char *link_txt;
     uint32_t dot;
     std::string ip_txt;
@@ -1255,7 +1298,7 @@ static void refresh(lv_timer_t *) {
         dot = COL_RED;
     }
     for (Header &h : s_hdr) {
-        lv_label_set_text(h.badge_lbl, grbl::state_name(st.state));
+        lv_label_set_text(h.badge_lbl, fault ? "FAULT" : grbl::state_name(st.state));
         lv_obj_set_style_bg_color(h.badge, C(bg), 0);
         lv_obj_set_style_text_color(h.badge_lbl, C(fg), 0);
         lv_label_set_text_fmt(h.pos, "X %.2f  Y %.2f", st.mpos[0], st.mpos[1]);
@@ -1323,8 +1366,24 @@ static void refresh(lv_timer_t *) {
         set_btn_colors(s_ptr_btn, COL_CARD, COL_AMBER_TX, COL_AMBER);
     }
 
-    // Alarms
-    if (st.state == grbl::State::Alarm) {
+    // Alarms (a latched tube-current fault takes priority)
+    ma_sensor::Reading fr = ma_sensor::get();
+    if (fr.fault) {
+        lv_label_set_text(s_alarm_title, "Tube current fault");
+        lv_label_set_text_fmt(s_alarm_desc,
+                              "Current hit %.1f mA (shut-off %d mA). The laser was shut off and the job "
+                              "stopped. Check the power setting, the tube and the PSU, then clear the fault.",
+                              fr.fault_ma, settings::get().ma_trip);
+        lv_obj_set_style_bg_color(s_alarm_card, C(COL_RED_CARD), 0);
+        lv_obj_set_style_text_color(s_alarm_title, C(COL_RED), 0);
+        lv_obj_remove_flag(s_fault_btn, LV_OBJ_FLAG_HIDDEN);
+        if (!s_fault_shown) {
+            s_fault_shown = true;
+            wake();
+            lv_screen_load(s_scr[SCR_ALARMS]);
+        }
+    } else if (st.state == grbl::State::Alarm) {
+        lv_obj_add_flag(s_fault_btn, LV_OBJ_FLAG_HIDDEN);
         const char *desc;
         const char *title = alarm_text(st.alarm, &desc);
         if (st.alarm)
@@ -1337,6 +1396,7 @@ static void refresh(lv_timer_t *) {
         if (st.alarm && st.alarm != s_last_alarm) lv_screen_load(s_scr[SCR_ALARMS]);
         s_last_alarm = st.alarm;
     } else {
+        lv_obj_add_flag(s_fault_btn, LV_OBJ_FLAG_HIDDEN);
         lv_label_set_text(s_alarm_title, "No active alarm");
         lv_label_set_text(s_alarm_desc, st.link_ok ? "grblHAL is responding." : "No reply from grblHAL - check the UART wiring.");
         lv_obj_set_style_bg_color(s_alarm_card, C(COL_CARD), 0);

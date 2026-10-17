@@ -16,6 +16,7 @@ struct Values {
     std::string pin;         // 4 digits guarding Setup and test fire; empty = no lock
     bool flipped = false;    // rotate the portrait UI 180 degrees
     int ma_limit = 18;       // warn above this tube current (needs the current sensor)
+    int ma_trip = 22;        // shut the laser off above this tube current
 };
 
 void init();  // call after nvs_flash_init()

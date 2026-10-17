@@ -5,6 +5,8 @@
 #include "board.hpp"
 #include "esp_log.h"
 #include "esp_timer.h"
+#include "grbl_link.hpp"
+#include "settings.hpp"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "sdkconfig.h"
@@ -19,6 +21,15 @@ static constexpr uint8_t REG_CONFIG = 0x00, REG_SHUNT = 0x01, REG_MFG_ID = 0xFE;
 static i2c_master_dev_handle_t s_dev = nullptr;
 static std::mutex s_mx;
 static Reading s_r;
+static volatile int s_trip_ma = 0;
+
+void set_trip_limit(int limit_ma) { s_trip_ma = limit_ma; }
+
+void clear_fault() {
+    std::lock_guard<std::mutex> g(s_mx);
+    s_r.fault = false;
+    s_r.fault_ma = 0;
+}
 
 static bool write_reg(uint8_t reg, uint16_t v) {
     uint8_t buf[3] = {reg, (uint8_t)(v >> 8), (uint8_t)v};
@@ -38,6 +49,8 @@ static void reader_task(void *) {
     const float lsb_v = s_r.ina226 ? 2.5e-6f : 10e-6f;
     float peak = 0;
     int64_t peak_at = 0;
+    int over = 0;
+    int64_t last_stop = 0;
     while (true) {
         uint16_t raw;
         if (read_reg(REG_SHUNT, &raw)) {
@@ -48,11 +61,30 @@ static void reader_task(void *) {
                 peak = ma;
                 peak_at = now;
             }
-            std::lock_guard<std::mutex> g(s_mx);
-            s_r.ma = ma;
-            s_r.peak_ma = peak;
+            // Shut-off: 3 consecutive readings over the limit (~60 ms) ignores single glitches
+            int trip = s_trip_ma;
+            over = (trip > 0 && ma > trip) ? over + 1 : 0;
+            bool stop = false;
+            {
+                std::lock_guard<std::mutex> g(s_mx);
+                s_r.ma = ma;
+                s_r.peak_ma = peak;
+                if (over >= 3 && now - last_stop > 500000) {
+                    if (!s_r.fault) {
+                        s_r.fault = true;
+                        s_r.fault_ma = ma;
+                    }
+                    stop = true;  // also re-stop if it fires over the limit again while latched
+                }
+            }
+            if (stop) {
+                last_stop = now;
+                ESP_LOGE(TAG, "tube current %.1f mA over %d mA shut-off - stopping", ma, trip);
+                grbl::panel_stop();
+            }
         }
-        vTaskDelay(pdMS_TO_TICKS(100));
+        // 50 Hz: fast enough to trip within ~60 ms of an over-current
+        vTaskDelay(pdMS_TO_TICKS(20));
     }
 }
 
@@ -87,7 +119,8 @@ void init() {
         s_r.ina226 = is226;
     }
     ESP_LOGI(TAG, "%s found, shunt %d mOhm", is226 ? "INA226" : "INA219", CONFIG_K40_MA_SHUNT_MOHM);
-    xTaskCreate(reader_task, "ma_sensor", 3072, nullptr, 3, nullptr);
+    s_trip_ma = settings::get().ma_trip;
+    xTaskCreate(reader_task, "ma_sensor", 3072, nullptr, 5, nullptr);
 }
 
 Reading get() {
