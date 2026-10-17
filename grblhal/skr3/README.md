@@ -13,7 +13,7 @@ in UART mode**.
 | | | GND | Panel UART3-IN pin 4 (GND) |
 | Laser PWM | **RGB** | PE6 (5 V buffered) | Laser PSU **IN** |
 | | | GND | Laser PSU **G** |
-| Laser fire (PSU **L**) | none | | L goes to G through the K40's Laser switch. Never to a FAN/HE output |
+| Laser enable (M3/M4) | **BED −** | PD7 MOSFET | PSU **L** → Laser switch → **1N5819 diode** (band toward the SKR) → BED −. The diode is required: BED − floats up to 24 V when off |
 | Air assist (flood, optional) | **HE0** | PB3, switched 24 V | Air pump relay / valve, or use an external switch |
 | Lid switch | **PWRDET** | PC15 ↔ GND | 2nd lid contact, closed when shut |
 | Water flow switch | **Probe** | PC13 ↔ GND | 2nd flow switch, closed while flowing |

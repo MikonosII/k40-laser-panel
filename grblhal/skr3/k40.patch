@@ -1,8 +1,8 @@
 diff --git a/boards/btt_skr_v3.0_map.h b/boards/btt_skr_v3.0_map.h
-index cd8e86a..7e7d790 100644
+index cd8e86a..672e730 100644
 --- a/boards/btt_skr_v3.0_map.h
 +++ b/boards/btt_skr_v3.0_map.h
-@@ -102,8 +102,13 @@
+@@ -102,12 +102,22 @@
  #define M4_ENABLE_PIN               13
  #endif
  
@@ -15,8 +15,17 @@ index cd8e86a..7e7d790 100644
 +#endif
  #define AUXOUTPUT1_PORT             GPIOB                       // Spindle direction - FAN2
  #define AUXOUTPUT1_PIN              5
++#ifdef K40_ENABLE_ON_HB
++#define AUXOUTPUT2_PORT             GPIOD                       // Laser enable - BED MOSFET (PD7), to PSU L through a diode
++#define AUXOUTPUT2_PIN              7
++#else
  #define AUXOUTPUT2_PORT             GPIOB                       // Spindle enable - FAN1
-@@ -154,8 +159,13 @@
+ #define AUXOUTPUT2_PIN              6
++#endif
+ #define AUXOUTPUT3_PORT             GPIOB                       // Coolant flood - HEAT0
+ #define AUXOUTPUT3_PIN              3
+ #define AUXOUTPUT4_PORT             GPIOB                       // Coolant mist - HEAT1
+@@ -154,8 +164,13 @@
  #define AUXINPUT1_PIN               13
  #define AUXINPUT2_PORT              GPIOA                       // Reset - EXP2 - pin 7
  #define AUXINPUT2_PIN               4
