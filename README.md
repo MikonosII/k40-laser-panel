@@ -63,19 +63,101 @@ fire is refused while either is open.
 | Coolant flood | air assist | Panel's Air button toggles flood (realtime `0xA0`) |
 | `$14`, `$6` (optional) | see above | Lid / water status on the Laser screen |
 
-## Build and flash
+## Build and flash the display
 
-1. Install **ESP-IDF v5.5.4 or newer** (VS Code + the *ESP-IDF* extension is easiest).
-2. In this folder:
-   ```
-   idf.py set-target esp32p4
-   idf.py menuconfig        # → "K40 panel": Wi-Fi, allowed LightBurn IP, power cap, rotation
-   idf.py build flash monitor
-   ```
-   LVGL 9, the GT911 touch driver and the ESP32-C6 Wi-Fi link (esp_hosted) download automatically.
+You need a computer (Windows, macOS or Linux) and a USB-C data cable. Budget about an hour the
+first time; most of it is the one-time ESP-IDF install.
 
-Wi-Fi runs on the board's ESP32-C6 coprocessor. If the log shows esp_hosted can't talk to it,
-update the C6 with Elecrow's *Advance_P4_On-Board_ESP32C6_Firmware* from their GitHub repo.
+### 1. Install the tools (one time)
+
+1. Install **[VS Code](https://code.visualstudio.com/)** and **[Git](https://git-scm.com/downloads)**.
+2. In VS Code, open Extensions (Ctrl/Cmd+Shift+X), search **"ESP-IDF"** and install the one
+   published by **Espressif Systems**.
+3. Open the Command Palette (Ctrl/Cmd+Shift+P) → **"ESP-IDF: Configure ESP-IDF Extension"** →
+   **Express** → pick ESP-IDF **v5.5.4 or newer** (5.5.x) → **Install**. This downloads the compiler
+   and Python tools (several GB, 10–30 min).
+4. **Windows only:** install the **CH340 USB-serial driver** if the board doesn't show up as a
+   COM port later (search "CH340 driver"). macOS and Linux have it built in.
+
+### 2. Get the code
+
+```
+git clone https://github.com/MikonosII/k40-laser-panel.git
+```
+
+(It's a private repo, so Git will ask you to sign in to GitHub.) Then in VS Code:
+**File → Open Folder → `k40-laser-panel`**.
+
+### 3. Set the chip type
+
+Command Palette → **"ESP-IDF: Set Espressif Device Target"** → **esp32p4** →
+**"ESP32-P4 chip (via builtin USB-JTAG)"** (any option is fine; you'll flash over serial).
+
+### 4. Enter your settings
+
+Command Palette → **"ESP-IDF: SDK Configuration Editor (menuconfig)"**, open the **K40 panel**
+section, fill in the settings below and click **Save**:
+
+| Setting | What to enter |
+|---|---|
+| Wi-Fi SSID / password | Your **2.4 GHz** network |
+| Only accept LightBurn from this IP | Your LightBurn PC's IP (reserve it in your router) |
+| Spindle max ($30) | `1000` unless you changed grblHAL's `$30` |
+| Panel test/pointer power cap (%) | The duty that gives your tube's safe current (measure with an mA meter) |
+| Portrait orientation | Leave at 90°; switch to 270° if the screen comes up upside down |
+
+Your Wi-Fi password is stored in the local `sdkconfig` file, which is git-ignored, so it never
+goes to GitHub.
+
+### 5. Build
+
+Click the **Build** (wrench) icon in the bottom status bar, or Command Palette →
+**"ESP-IDF: Build your Project"**. The first build downloads LVGL, the touch driver and the
+Wi-Fi coprocessor library, and takes a few minutes; later builds are fast.
+
+### 6. Connect and flash
+
+1. Plug the USB-C cable into the port labelled **UART** (the one wired to the CH340 chip).
+   The **USB2.0** port is not used for flashing.
+2. If the panel is already wired into the laser, you can leave its 5V supply on: the board's
+   power path keeps USB and the 5V header from fighting. On USB power alone, the screen may
+   flicker or reset at full brightness because a computer port can't supply 8–10 W.
+3. Click the **plug** icon in the status bar and pick the new port:
+   `COMx` on Windows, `/dev/cu.wchusbserial…` or `/dev/cu.usbserial…` on macOS,
+   `/dev/ttyUSB0` or `/dev/ttyACM0` on Linux.
+4. Click the **star/flame "Build, Flash and Monitor"** icon (or **Flash**, then **Monitor**).
+   Choose **UART** if it asks for a flash method.
+5. The board enters download mode automatically. If flashing fails to connect: hold **BOOT**,
+   tap **RESET**, release **BOOT**, then flash again.
+
+To leave the serial monitor, press **Ctrl+]**.
+
+### 7. What a good first boot looks like
+
+In the monitor you should see, roughly in order:
+- `GT911 at 0x5d` (or `0x14`): touch found
+- `UART1 TX=27 RX=28 @115200`: grblHAL link started
+- `IP 192.168.x.x`: Wi-Fi connected (also shown in the panel's header)
+- `LightBurn server on port 23`
+
+If something's missing, see the checklist below.
+
+### Command-line alternative
+
+From an ESP-IDF terminal (Command Palette → **"ESP-IDF: Open ESP-IDF Terminal"**):
+
+```
+idf.py set-target esp32p4
+idf.py menuconfig
+idf.py -p <PORT> build flash monitor
+```
+
+### Wi-Fi coprocessor
+
+Wi-Fi runs on the board's ESP32-C6. If the log shows esp_hosted can't talk to it, update the C6
+with Elecrow's *Advance_P4_On-Board_ESP32C6_Firmware* (in their
+[P4 5" GitHub repo](https://github.com/Elecrow-RD/-CrowPanel-Advanced-5inch-ESP32-P4-HMI-AI-Display-800x480-IPS-Touch-Screen),
+under `example/CrowPanel_Advance_ESP32-P4 Display_Firmware_Upgrade_Guide`).
 
 ## LightBurn
 
@@ -109,7 +191,9 @@ This was compile-checked, not run on hardware. If something's off:
 | Image shifts/flickers | Lower *RGB pixel clock* (e.g. 16000000) |
 | Won't boot, log mentions chip revision v3 | Turn off `ESP32P4_SELECTS_REV_LESS_V3` in sdkconfig.defaults |
 | "No link to grblHAL" | Swap TX/RX wires; confirm grblHAL baud is 115200 |
-| "No Wi-Fi" | Check SSID/password; update the C6 firmware (above) |
+| "No Wi-Fi" | Check SSID/password and that it's 2.4 GHz; update the C6 firmware (above) |
+| Board not found when flashing | Use the **UART** USB-C port and a data (not charge-only) cable; install the CH340 driver; try BOOT + RESET |
+| Screen resets during flashing/USB-only | Normal on weak USB power; power it from the 5V supply too |
 
 ## Files
 
