@@ -13,8 +13,8 @@ in UART mode**.
 | | | GND | Panel UART3-IN pin 4 (GND) |
 | Laser PWM | **RGB** | PE6 (5 V buffered) | Laser PSU **IN** |
 | | | GND | Laser PSU **G** |
-| Laser enable (M3/M4) | **FAN1** | PB6, switched | as on the Mini E3 |
-| Air assist (flood) | **HE0** | PB3, switched 24 V | Air pump relay / valve |
+| Laser fire (PSU **L**) | none | | L goes to G through the K40's Laser switch. Never to a FAN/HE output |
+| Air assist (flood, optional) | **HE0** | PB3, switched 24 V | Air pump relay / valve, or use an external switch |
 | Lid switch | **PWRDET** | PC15 ↔ GND | 2nd lid contact, closed when shut |
 | Water flow switch | **Probe** | PC13 ↔ GND | 2nd flow switch, closed while flowing |
 | X / Y motors | **X / Y** driver slots | | TMC2209, UART jumper fitted under each |

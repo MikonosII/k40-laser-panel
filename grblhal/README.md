@@ -8,8 +8,8 @@ Ready-to-flash grblHAL for the K40's BTT SKR Mini E3 V3.0, set up for this panel
 |---|---|
 | Serial | TFT header, **USART2 PA2/PA3, 115200** (wired to the panel's UART3-IN) |
 | Laser PWM | **NEOPIXEL / RGB connector data pin (PA8)**, 5 V buffered on the board, 1 kHz |
-| Laser enable (M3/M4) | FAN1 (PC7), switched |
-| Air assist (flood, M8 / panel Air button) | HE0 (PC8), switched 24 V |
+| Laser fire (PSU **L**) | not from the SKR: L goes to G through the K40's front-panel Laser switch. **Never wire L to a FAN or HE output**: they float up to 24 V when off |
+| Air assist (flood, M8 / panel Air button) | HE0 (PC8), switched 24 V, optional (an external air switch works too) |
 | Lid → feed hold | PWR-DET (PC12) |
 | Water flow → probe input | PROBE (PC14) |
 | Motors | X, Y on the onboard TMC2209s (UART mode) |
