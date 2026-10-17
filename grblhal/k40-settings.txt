@@ -1,0 +1,42 @@
+; grblHAL settings for the K40 (SKR Mini E3 V3 + this panel)
+; The firmware in release/grblhal already uses these as its defaults. Paste them only if the
+; SKR ran grblHAL before (old settings are kept), or after a $RST=* if things look wrong.
+; Send one line at a time from LightBurn's Console. Lines starting with ; are notes.
+
+; --- Laser ---
+$32=1
+$30=1000
+$31=0
+$33=1000
+; ($33 = PWM frequency in Hz. 1000 suits most K40 supplies; try 2000-5000 if low power is uneven.)
+
+; --- Inputs ---
+; E-stop and cycle start are unused, so they're inverted to read "inactive" when nothing is wired.
+; Feed hold (PWR-DET) is NOT inverted: the lid switch closes to GND when the lid is shut,
+; and an open lid (or no switch) reads as feed hold.
+$14=68
+; Water flow switch on PROBE closes to GND while water flows; no flow = Pn:P.
+$6=0
+; Not fitted the lid / water switches yet? Use these instead, or the panel shows Lid Open / No flow:
+;   $14=70
+;   $6=1
+
+; --- Motion (stock K40: 0.9 degree motors, 20-tooth MXL pulleys, 1/16 microstepping) ---
+$100=157.48
+$101=157.48
+$110=18000
+$111=18000
+$120=2000
+$121=2000
+; Motor current, mA RMS (TMC2209). Raise in steps of 100 if a motor skips; most K40 motors are fine at 600-800.
+$140=600
+$141=600
+
+; --- Work area (stock K40 bed) ---
+$130=300
+$131=200
+
+; --- Homing (optional, only once the end stops are wired to X-STOP / Y-STOP) ---
+; K40 heads home to the back left: X toward 0, Y toward max.
+;   $22=1
+;   $23=1
