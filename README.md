@@ -252,6 +252,33 @@ network can drive the laser. Never port-forward it.
 - **Pointer** auto-switches off after 30 s.
 - A new alarm jumps to the Alarms screen with a plain-English explanation.
 
+## Running jobs from the panel (no PC needed once uploaded)
+
+LightBurn can't send a file to a GRBL controller, so this uses LightBurn's **Save GCode**:
+
+1. In LightBurn, click **Save GCode** (turn off Beginner Mode in *Edit → Settings* if you don't
+   see it). Set *Start From* to **Absolute Coords** so the file doesn't depend on where the head is.
+2. In a browser on the same network, open **http://&lt;panel IP&gt;/** (the address is on the Jobs
+   screen) and upload the file.
+3. On the panel's **Jobs** screen, pick the file and press **Start** (asks for the PIN if one is set).
+
+**Where files go:** onto the panel's microSD card, in a `jobs` folder. With no card in the slot,
+they're held in memory (up to 20 MB) and lost at restart. The panel checks for a card every few
+seconds while the Jobs screen is open, so you can insert one at any time.
+
+**While a panel job runs:**
+- The panel feeds grblHAL itself, so a Wi-Fi drop or a sleeping PC doesn't affect the job.
+- **Pause / Resume / Stop** work from the Jobs or Status screen. Stop soft-resets grblHAL (laser
+  off). A tube over-current trip, an alarm or a reset also ends the job.
+- LightBurn can stay connected and watch the position. Its own G-code lines get `error:9` and its
+  reset is ignored, so stop panel jobs from the panel.
+- Start is refused if the lid is open, water isn't flowing, grblHAL isn't Idle, a LightBurn job is
+  running, or there's a tube current fault.
+- The upload page uses the same *LightBurn computer* IP allowlist as port 23. Jobs can't be
+  started from the browser, only from the panel.
+
+Streaming speed is the same as from LightBurn (the 115200-baud link to the SKR is the limit).
+
 ## First power-up checklist
 
 This was compile-checked, not run on hardware. If something's off:
@@ -265,6 +292,8 @@ This was compile-checked, not run on hardware. If something's off:
 | "No link to grblHAL" | Swap TX/RX wires; confirm grblHAL baud is 115200 |
 | "No Wi-Fi" | Check SSID/password and that it's 2.4 GHz; update the C6 firmware (above) |
 | Board not found when flashing | Use the **UART** USB-C port and a data (not charge-only) cable; install the CH340 driver; try BOOT + RESET |
+| Jobs screen says *No SD card* with a card in | Card must be FAT32 (exFAT isn't supported); try another card |
+| Wi-Fi drops while uploading or running from SD | Report it: the card and the Wi-Fi chip share one SD controller. Use memory (no card) as a workaround |
 | Screen resets during flashing/USB-only | Normal on weak USB power; power it from the 5V supply too |
 
 ## Files

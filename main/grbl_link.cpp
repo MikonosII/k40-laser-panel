@@ -21,7 +21,7 @@ static constexpr size_t CONSOLE_LINES = 14;
 static constexpr uint32_t HOST_QUIET_MS = 1500;  // after a panel Stop
 static constexpr uint32_t JOB_END_IDLE_MS = 2000;
 
-enum class Owner : uint8_t { Host, Panel };
+enum class Owner : uint8_t { Host, Panel, Job };
 
 static std::mutex s_mx;
 static Status s_st;
@@ -42,6 +42,14 @@ static uint32_t s_job_start_ms = 0;
 static uint32_t s_idle_since_ms = 0;
 
 static std::deque<std::string> s_console;
+
+// Panel job (file streamed by the panel itself, character-counting flow control)
+static constexpr size_t JOB_RX_BUDGET = 512;  // bytes we let sit in grblHAL's serial buffer
+static bool s_job_mode = false;
+static bool s_job_abort = false;
+static std::deque<uint16_t> s_job_lens;  // byte count of each job line awaiting its reply
+static size_t s_job_bytes = 0;
+static uint32_t s_job_errors = 0;
 
 static uint32_t now_ms() { return (uint32_t)(esp_timer_get_time() / 1000); }
 
@@ -96,11 +104,14 @@ static void clear_streams_locked() {
     s_host_pending.clear();
     s_host_line.clear();
     s_panel_inflight = 0;
+    s_job_lens.clear();
+    s_job_bytes = 0;
+    if (s_job_mode) s_job_abort = true;
 }
 
 static bool job_running_locked() {
     State s = s_st.state;
-    return s_st.job_active || s == State::Run || s == State::Hold || s == State::Door;
+    return s_job_mode || s_st.job_active || s == State::Run || s == State::Hold || s == State::Door;
 }
 
 // ---- status report parsing ------------------------------------------------
@@ -191,6 +202,11 @@ static void parse_status_locked(const std::string &line) {
 
     // Job timer: a job is LightBurn lines + motion, ending after a quiet idle
     uint32_t t = now_ms();
+    if (s_job_mode) {  // panel job: jobs.cpp decides when it ends
+        s_st.job_active = true;
+        s_st.job_seconds = (t - s_job_start_ms) / 1000;
+        return;
+    }
     bool moving = s_st.state == State::Run || s_st.state == State::Hold || s_st.state == State::Door;
     bool host_recent = t - s_last_host_line_ms < 3000 || !s_inflight.empty();
     if (moving && host_recent && !s_st.job_active) {
@@ -231,12 +247,23 @@ static void handle_line(const std::string &line) {
                     --s_panel_inflight;
                     if (line != "ok") console_push("panel " + line);
                     flush_host_pending_locked();
+                } else if (who == Owner::Job) {
+                    forward = false;
+                    if (!s_job_lens.empty()) {
+                        s_job_bytes -= s_job_lens.front();
+                        s_job_lens.pop_front();
+                    }
+                    if (line != "ok") {
+                        ++s_job_errors;
+                        console_push("job " + line);
+                    }
                 }
             }
         } else if (!line.empty()) {
             if (line.rfind("ALARM:", 0) == 0) {
                 s_st.alarm = atoi(line.c_str() + 6);
                 s_st.state = State::Alarm;
+                if (s_job_mode) s_job_abort = true;
             }
             if (line.rfind("Grbl", 0) == 0) {  // reset banner: queued replies are gone
                 clear_streams_locked();
@@ -341,12 +368,21 @@ void host_rx(const uint8_t *data, size_t len) {
             console_push("LightBurn input resumed");
         }
         if (is_realtime(c)) {
+            // During a panel job LightBurn may watch, pause and resume, but a reset from it
+            // (LightBurn sends one on some connects) must not kill the job: stop it on the panel.
+            if (s_job_mode && c == 0x18) continue;
             uart_put((const char *)&c, 1);
             if (c == 0x18) clear_streams_locked();
             continue;
         }
         s_host_last_ms = t;
         s_host_line.push_back((char)c);
+        if (c == '\n' && s_job_mode) {
+            // grblHAL is busy with the panel's job: refuse LightBurn's line the way grbl would
+            s_host_line.clear();
+            if (s_host) s_host((const uint8_t *)"error:9\r\n", 9);
+            continue;
+        }
         if (c == '\n') {
             if (s_panel_inflight == 0 && s_host_pending.empty()) {
                 write_line_locked(Owner::Host, s_host_line);
@@ -391,6 +427,7 @@ void panel_stop() {
     std::lock_guard<std::mutex> g(s_mx);
     uint8_t c = rt::RESET;
     uart_put((const char *)&c, 1);
+    if (s_job_mode) s_job_abort = true;
     clear_streams_locked();
     s_st.job_active = false;
     if (s_host) {
@@ -398,6 +435,67 @@ void panel_stop() {
         s_host_last_ms = now_ms();
     }
     console_push("Stopped from panel");
+}
+
+// ---- panel job streaming -----------------------------------------------------
+
+bool job_begin() {
+    std::lock_guard<std::mutex> g(s_mx);
+    if (!s_st.link_ok || s_st.state != State::Idle || s_job_mode || s_st.job_active ||
+        !s_inflight.empty() || !s_host_pending.empty() || !s_host_line.empty()) {
+        return false;
+    }
+    s_job_mode = true;
+    s_job_abort = false;
+    s_job_lens.clear();
+    s_job_bytes = 0;
+    s_job_errors = 0;
+    s_job_start_ms = now_ms();
+    s_st.job_active = true;
+    s_st.job_seconds = 0;
+    console_push("Panel job started");
+    return true;
+}
+
+SendResult job_send(const std::string &line) {
+    std::lock_guard<std::mutex> g(s_mx);
+    if (!s_job_mode || s_job_abort) return SendResult::Aborted;
+    size_t n = line.size() + 1;
+    // An over-long line still goes out alone once everything before it is acknowledged
+    if (s_job_bytes + n > JOB_RX_BUDGET && s_job_bytes > 0) return SendResult::Full;
+    s_inflight.push_back(Owner::Job);
+    s_job_lens.push_back((uint16_t)n);
+    s_job_bytes += n;
+    uart_put(line.data(), line.size());
+    uart_put("\n", 1);
+    return SendResult::Sent;
+}
+
+bool job_acked() {
+    std::lock_guard<std::mutex> g(s_mx);
+    return s_job_lens.empty();
+}
+
+bool job_aborted() {
+    std::lock_guard<std::mutex> g(s_mx);
+    return s_job_abort;
+}
+
+uint32_t job_errors() {
+    std::lock_guard<std::mutex> g(s_mx);
+    return s_job_errors;
+}
+
+void job_end() {
+    std::lock_guard<std::mutex> g(s_mx);
+    if (!s_job_mode) return;
+    s_job_mode = false;
+    s_job_abort = false;
+    s_job_lens.clear();
+    s_job_bytes = 0;
+    s_st.job_active = false;
+    s_idle_since_ms = 0;
+    console_push("Panel job ended");
 }
 
 }  // namespace grbl

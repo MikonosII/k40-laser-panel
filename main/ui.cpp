@@ -1,4 +1,4 @@
-// Four portrait screens (480x800): Status, Jog, Laser, Alarms.
+// Portrait screens (480x800): Status, Jog, Laser, Jobs, Alarms, Setup.
 // Layout and colors follow the "K40 laser panel" mockup.
 #include "ui.hpp"
 
@@ -13,6 +13,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "grbl_link.hpp"
+#include "jobs.hpp"
 #include "ma_sensor.hpp"
 #include "lvgl.h"
 #include "net_bridge.hpp"
@@ -44,7 +45,7 @@ static lv_color_t C(uint32_t hex) { return lv_color_hex(hex); }
 #define COL_BLUE_EDGE 0x4FB3D9
 #define COL_GRAY_BG 0x2A2D33
 
-enum Screen { SCR_STATUS, SCR_JOG, SCR_LASER, SCR_ALARMS, SCR_SETUP, SCR_COUNT };
+enum Screen { SCR_STATUS, SCR_JOG, SCR_LASER, SCR_JOBS, SCR_ALARMS, SCR_SETUP, SCR_COUNT };
 
 struct Header {
     lv_obj_t *badge, *badge_lbl, *pos, *link, *dot;
@@ -73,6 +74,12 @@ static lv_obj_t *s_test_lbl, *s_dur_btn[3], *s_arm_btn, *s_arm_lbl, *s_fire_btn;
 static lv_obj_t *s_lid_lbl, *s_water_lbl, *s_cap_lbl, *s_ma_lbl;
 static lv_obj_t *s_exh_lbl;
 static lv_timer_t *s_arm_timer;
+// Jobs
+static lv_obj_t *s_jobs_store, *s_jobs_url, *s_jobs_list, *s_run_name, *s_run_bar, *s_run_info;
+static lv_obj_t *s_del_lbl;
+static std::string s_sel_job;
+static uint32_t s_jobs_rev = 0, s_del_armed = 0;
+static jobs::RunState s_last_run = jobs::RunState::Idle;
 // Alarms
 static lv_obj_t *s_alarm_card, *s_alarm_title, *s_alarm_desc, *s_console, *s_fault_btn;
 static bool s_fault_shown = false;
@@ -159,7 +166,7 @@ static bool panel_send(const char *line) {
     if (!st.link_ok)
         toast("No link to grblHAL");
     else if (st.job_active)
-        toast("Job running - use LightBurn");
+        toast(jobs::running() ? "Panel job running" : "Job running - use LightBurn");
     else
         toast("Busy - try again");
     return false;
@@ -360,9 +367,9 @@ static lv_obj_t *make_content(lv_obj_t *scr) {
 }
 
 static lv_obj_t *make_nav(lv_obj_t *scr, Screen active) {
-    static const char *names[SCR_COUNT] = {"Status", "Jog", "Laser", "Alarms", "Setup"};
+    static const char *names[SCR_COUNT] = {"Status", "Jog", "Laser", "Jobs", "Alarms", "Setup"};
     static const char *icons[SCR_COUNT] = {LV_SYMBOL_HOME, LV_SYMBOL_GPS, LV_SYMBOL_CHARGE,
-                                           LV_SYMBOL_WARNING, LV_SYMBOL_SETTINGS};
+                                           LV_SYMBOL_FILE, LV_SYMBOL_WARNING, LV_SYMBOL_SETTINGS};
     lv_obj_t *nav = box(scr, LV_FLEX_FLOW_ROW, 6);
     lv_obj_set_height(nav, 84);
     lv_obj_set_style_pad_all(nav, 8, 0);
@@ -388,6 +395,11 @@ static lv_obj_t *make_nav(lv_obj_t *scr, Screen active) {
 
 static void rt_cb(lv_event_t *e) { grbl::realtime((uint8_t)(intptr_t)lv_event_get_user_data(e)); }
 static void stop_cb(lv_event_t *) {
+    if (jobs::running()) {
+        jobs::stop();
+        toast("Job stopped");
+        return;
+    }
     grbl::panel_stop();
     toast("Stopped. Clear the job in LightBurn.");
 }
@@ -752,6 +764,203 @@ static void build_laser() {
     lv_timer_pause(s_arm_timer);
     lv_label_set_text_fmt(s_test_lbl, "%d %%", s_test_pct);
     make_nav(scr, SCR_LASER);
+}
+
+// ---- Jobs -------------------------------------------------------------------
+
+static std::string mb_text(uint64_t bytes) {
+    char b[32];
+    if (bytes < 10u * 1024 * 1024)
+        snprintf(b, sizeof(b), "%.1f MB", bytes / 1048576.0);
+    else
+        snprintf(b, sizeof(b), "%.0f MB", bytes / 1048576.0);
+    return b;
+}
+
+static void job_item_cb(lv_event_t *e) {
+    lv_obj_t *b = (lv_obj_t *)lv_event_get_target(e);
+    s_sel_job = (const char *)lv_obj_get_user_data(b);
+    uint32_t n = lv_obj_get_child_count(s_jobs_list);
+    for (uint32_t i = 0; i < n; ++i) {
+        lv_obj_t *o = lv_obj_get_child(s_jobs_list, i);
+        const char *nm = (const char *)lv_obj_get_user_data(o);
+        if (nm) select_style(o, s_sel_job == nm);
+    }
+    s_del_armed = 0;
+    lv_label_set_text(s_del_lbl, "Delete");
+}
+
+static void free_name_cb(lv_event_t *e) {
+    lv_free(lv_obj_get_user_data((lv_obj_t *)lv_event_get_target(e)));
+}
+
+static void jobs_rebuild_list() {
+    lv_obj_clean(s_jobs_list);
+    std::vector<jobs::Info> list = jobs::list();
+    bool sel_found = false;
+    for (const jobs::Info &j : list) {
+        std::string txt = j.name + "   " + mb_text(j.size);
+        lv_obj_t *b = button(s_jobs_list, txt.c_str(), COL_CARD, COL_SOFT, &lv_font_montserrat_16,
+                             job_item_cb, nullptr, COL_EDGE);
+        lv_obj_set_size(b, LV_PCT(100), 52);
+        lv_obj_t *l = lv_obj_get_child(b, 0);
+        lv_obj_align(l, LV_ALIGN_LEFT_MID, 4, 0);
+        lv_label_set_long_mode(l, LV_LABEL_LONG_DOT);
+        lv_obj_set_width(l, LV_PCT(100));
+        char *nm = (char *)lv_malloc(j.name.size() + 1);
+        memcpy(nm, j.name.c_str(), j.name.size() + 1);
+        lv_obj_set_user_data(b, nm);
+        lv_obj_add_event_cb(b, free_name_cb, LV_EVENT_DELETE, nullptr);
+        bool on = j.name == s_sel_job;
+        sel_found |= on;
+        select_style(b, on);
+    }
+    if (!sel_found) s_sel_job.clear();
+    if (list.empty())
+        label(s_jobs_list, "No jobs yet. In LightBurn click Save GCode, then upload it from a browser.",
+              &lv_font_montserrat_14, COL_SUB);
+}
+
+static void job_start_now() {
+    std::string err;
+    if (jobs::start(s_sel_job, err))
+        toast("Job started");
+    else
+        toast(err.c_str());
+}
+
+static void job_start_cb(lv_event_t *) {
+    if (s_sel_job.empty()) {
+        toast("Pick a job first");
+        return;
+    }
+    require_pin(job_start_now);
+}
+
+static void job_stop_cb(lv_event_t *) {
+    if (!jobs::running()) {
+        toast("No panel job running");
+        return;
+    }
+    jobs::stop();
+    toast("Job stopped");
+}
+
+static void job_delete_cb(lv_event_t *) {
+    if (s_sel_job.empty()) {
+        toast("Pick a job first");
+        return;
+    }
+    uint32_t now = lv_tick_get();
+    if (!s_del_armed || now - s_del_armed > 3000) {
+        s_del_armed = now;
+        lv_label_set_text(s_del_lbl, "Tap again");
+        return;
+    }
+    s_del_armed = 0;
+    lv_label_set_text(s_del_lbl, "Delete");
+    if (!jobs::remove(s_sel_job)) toast("Can't delete a running job");
+    s_sel_job.clear();
+}
+
+static void build_jobs() {
+    lv_obj_t *scr = make_screen(SCR_JOBS);
+    lv_obj_t *c = make_content(scr);
+
+    lv_obj_t *run = card(c);
+    s_run_name = label(run, "No job running", &lv_font_montserrat_20, COL_TEXT);
+    lv_label_set_long_mode(s_run_name, LV_LABEL_LONG_DOT);
+    lv_obj_set_width(s_run_name, LV_PCT(100));
+    s_run_bar = lv_bar_create(run);
+    lv_obj_set_size(s_run_bar, LV_PCT(100), 14);
+    lv_bar_set_range(s_run_bar, 0, 1000);
+    lv_obj_set_style_bg_color(s_run_bar, C(COL_BTN), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(s_run_bar, C(COL_AMBER), LV_PART_INDICATOR);
+    s_run_info = label(run, "Pick a job below and press Start", &lv_font_montserrat_14, COL_SUB);
+    lv_obj_t *row = box(run, LV_FLEX_FLOW_ROW, 8);
+    lv_obj_t *b1 = button(row, LV_SYMBOL_PLAY " Start", COL_GREEN_BG, COL_GREEN, &lv_font_montserrat_20,
+                          job_start_cb);
+    lv_obj_t *b2 = button(row, "Pause", COL_AMBER_BG, COL_AMBER_TX, &lv_font_montserrat_20, rt_cb,
+                          (void *)(intptr_t)grbl::rt::HOLD);
+    lv_obj_t *b3 = button(row, "Resume", COL_BTN, COL_TEXT, &lv_font_montserrat_20, rt_cb,
+                          (void *)(intptr_t)grbl::rt::RESUME, COL_EDGE);
+    lv_obj_t *b4 = button(row, LV_SYMBOL_STOP " Stop", COL_RED_BG, COL_RED, &lv_font_montserrat_20,
+                          job_stop_cb);
+    for (lv_obj_t *o : {b1, b2, b3, b4}) {
+        lv_obj_set_height(o, 60);
+        lv_obj_set_flex_grow(o, 1);
+        lv_obj_set_style_radius(o, 8, 0);
+    }
+
+    lv_obj_t *lc = card(c);
+    lv_obj_set_flex_grow(lc, 1);
+    lv_obj_t *hdr = box(lc, LV_FLEX_FLOW_ROW, 8);
+    lv_obj_set_flex_align(hdr, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    s_jobs_store = label(hdr, "Checking storage...", &lv_font_montserrat_14, COL_SUB);
+    lv_obj_t *del = button(hdr, "Delete", COL_BTN, COL_RED, &lv_font_montserrat_16, job_delete_cb,
+                           nullptr, COL_EDGE, &s_del_lbl);
+    lv_obj_set_size(del, 110, 44);
+    s_jobs_list = box(lc, LV_FLEX_FLOW_COLUMN, 8);
+    lv_obj_set_flex_grow(s_jobs_list, 1);
+    lv_obj_add_flag(s_jobs_list, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_scroll_dir(s_jobs_list, LV_DIR_VER);
+    s_jobs_url = label(lc, "", &lv_font_montserrat_14, COL_SUB);
+    lv_label_set_long_mode(s_jobs_url, LV_LABEL_LONG_WRAP);
+    lv_obj_set_width(s_jobs_url, LV_PCT(100));
+
+    make_nav(scr, SCR_JOBS);
+}
+
+static void refresh_jobs(const net::Info &ni) {
+    jobs::Progress p = jobs::progress();
+    bool on_screen = lv_screen_active() == s_scr[SCR_JOBS];
+
+    // Tell the user how a job ended, wherever they are
+    if (s_last_run == jobs::RunState::Running && p.state != jobs::RunState::Running) {
+        wake();
+        toast(p.msg.c_str());
+        s_jobs_rev = 0;  // refresh the list (sizes, new uploads)
+    }
+    s_last_run = p.state;
+
+    if (p.state == jobs::RunState::Running) {
+        lv_label_set_text(s_run_name, p.name.c_str());
+        uint32_t permille = p.total ? (uint32_t)((uint64_t)p.sent * 1000 / p.total) : 0;
+        lv_bar_set_value(s_run_bar, (int32_t)permille, LV_ANIM_OFF);
+        uint32_t left = p.sent > 0 ? (uint32_t)((uint64_t)p.elapsed_s * (p.total - p.sent) / p.sent) : 0;
+        lv_label_set_text_fmt(s_run_info, "%u.%u %%   %02u:%02u elapsed   ~%u min left%s",
+                              (unsigned)(permille / 10), (unsigned)(permille % 10),
+                              (unsigned)(p.elapsed_s / 60), (unsigned)(p.elapsed_s % 60),
+                              (unsigned)((left + 59) / 60), p.errors ? "   (G-code errors)" : "");
+    } else if (p.state != jobs::RunState::Idle) {
+        lv_label_set_text(s_run_name, p.name.c_str());
+        lv_bar_set_value(s_run_bar, p.state == jobs::RunState::Done ? 1000 : 0, LV_ANIM_OFF);
+        lv_label_set_text_fmt(s_run_info, "%s - %02u:%02u", p.msg.c_str(), (unsigned)(p.elapsed_s / 60),
+                              (unsigned)(p.elapsed_s % 60));
+    }
+
+    if (s_del_armed && lv_tick_get() - s_del_armed > 3000) {
+        s_del_armed = 0;
+        lv_label_set_text(s_del_lbl, "Delete");
+    }
+
+    // Storage and list: only while the screen is open (checking the card costs bus time)
+    static uint32_t last_check = 0;
+    if (!on_screen || lv_tick_get() - last_check < 2000) return;
+    last_check = lv_tick_get();
+    jobs::StorageInfo si = jobs::storage();
+    std::string store = si.sd ? "SD card - " + mb_text(si.free) + " free"
+                              : "No SD card - kept in memory until restart";
+    lv_label_set_text(s_jobs_store, store.c_str());
+    if (ni.wifi_up)
+        lv_label_set_text_fmt(s_jobs_url, "Upload from a browser: http://%s/", ni.ip.c_str());
+    else
+        lv_label_set_text(s_jobs_url, "Connect Wi-Fi (Setup) to upload jobs");
+    uint32_t rev = jobs::revision();
+    if (rev != s_jobs_rev) {
+        s_jobs_rev = rev;
+        jobs_rebuild_list();
+    }
 }
 
 // ---- Alarms -----------------------------------------------------------------
@@ -1309,9 +1518,15 @@ static void refresh(lv_timer_t *) {
     // Status
     lv_label_set_text_fmt(s_job_time, "%02u:%02u", (unsigned)(st.job_seconds / 60),
                           (unsigned)(st.job_seconds % 60));
-    lv_label_set_text(s_job_sub, st.job_active      ? "Streaming from LightBurn"
-                                 : st.host_connected ? "LightBurn connected"
-                                                     : "Ready");
+    jobs::Progress jp = jobs::progress();
+    if (jp.state == jobs::RunState::Running)
+        lv_label_set_text_fmt(s_job_sub, "Panel job %u%%",
+                              (unsigned)(jp.total ? (uint64_t)jp.sent * 100 / jp.total : 0));
+    else
+        lv_label_set_text(s_job_sub, st.job_active      ? "Streaming from LightBurn"
+                                     : st.host_connected ? "LightBurn connected"
+                                                         : "Ready");
+    refresh_jobs(ni);
     lv_label_set_text_fmt(s_speed, "%.0f", st.feed);
     int pct = CONFIG_K40_S_MAX > 0 ? (int)(st.spindle * 100.0f / CONFIG_K40_S_MAX + 0.5f) : 0;
     lv_label_set_text_fmt(s_power, "%d %%", pct);
@@ -1426,6 +1641,7 @@ void build() {
     build_status();
     build_jog();
     build_laser();
+    build_jobs();
     build_alarms();
     build_setup();
 

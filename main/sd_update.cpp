@@ -68,22 +68,31 @@ static void show_message(const char *title, const char *detail) {
     pump();
 }
 
+void sd_config(sdmmc_host_t *host, sdmmc_slot_config_t *slot) {
+    // Pins and slot from Elecrow's P4 SD example (1-bit SDMMC, slot 0). The C6 Wi-Fi link is
+    // slot 1 of the same host; IDF 5.5 switches between slots per transaction, and unmounting
+    // only releases slot 0 (deinit_p = sdmmc_host_deinit_slot), so the card can come and go
+    // while Wi-Fi runs.
+    *host = SDMMC_HOST_DEFAULT();
+    host->slot = SDMMC_HOST_SLOT_0;
+    host->max_freq_khz = 10000;
+    *slot = SDMMC_SLOT_CONFIG_DEFAULT();
+    slot->clk = GPIO_NUM_43;
+    slot->cmd = GPIO_NUM_44;
+    slot->d0 = GPIO_NUM_39;
+    slot->width = 1;
+    slot->flags |= SDMMC_SLOT_FLAG_INTERNAL_PULLUP;
+}
+
 void run() {
     esp_vfs_fat_sdmmc_mount_config_t mcfg = {};
     mcfg.format_if_mount_failed = false;  // never wipe the user's card
     mcfg.max_files = 2;
     mcfg.allocation_unit_size = 16 * 1024;
 
-    // Pins and slot from Elecrow's P4 SD example (1-bit SDMMC, slot 0)
-    sdmmc_host_t host = SDMMC_HOST_DEFAULT();
-    host.slot = SDMMC_HOST_SLOT_0;
-    host.max_freq_khz = 10000;
-    sdmmc_slot_config_t slot = SDMMC_SLOT_CONFIG_DEFAULT();
-    slot.clk = GPIO_NUM_43;
-    slot.cmd = GPIO_NUM_44;
-    slot.d0 = GPIO_NUM_39;
-    slot.width = 1;
-    slot.flags |= SDMMC_SLOT_FLAG_INTERNAL_PULLUP;
+    sdmmc_host_t host;
+    sdmmc_slot_config_t slot;
+    sd_config(&host, &slot);
 
     sdmmc_card_t *card = nullptr;
     if (esp_vfs_fat_sdmmc_mount(MOUNT, &host, &slot, &mcfg, &card) != ESP_OK) {

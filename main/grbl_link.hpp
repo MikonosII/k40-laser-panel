@@ -62,4 +62,15 @@ bool send(const char *line);  // one line, no newline; false if not allowed now
 bool send_lines(const char *const *lines, int n);
 void panel_stop();  // soft reset, then ignore LightBurn until it goes quiet
 
+// Panel jobs: the panel streams a G-code file itself (see jobs.hpp). While one runs,
+// LightBurn's G-code lines get "error:9" and its reset byte is ignored; its status polls,
+// pause/resume and overrides still pass through.
+enum class SendResult { Sent, Full, Aborted };
+bool job_begin();                          // false unless grblHAL is Idle and nobody else is streaming
+SendResult job_send(const std::string &line);  // no newline; Full = wait for grblHAL to catch up
+bool job_acked();                          // every job line has had its ok/error
+bool job_aborted();                        // reset, alarm or panel Stop since job_begin()
+uint32_t job_errors();
+void job_end();
+
 }  // namespace grbl
