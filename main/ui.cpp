@@ -60,7 +60,8 @@ static lv_timer_t *s_ptr_timer;
 static const int DUR_MS[] = {50, 200, 1000};
 static int s_test_pct = 10, s_dur_i = 1;
 static bool s_armed = false, s_exhaust = false;
-static lv_obj_t *s_test_lbl, *s_dur_btn[3], *s_arm_btn, *s_arm_lbl, *s_door_lbl, *s_fire_btn;
+static lv_obj_t *s_test_lbl, *s_dur_btn[3], *s_arm_btn, *s_arm_lbl, *s_fire_btn;
+static lv_obj_t *s_lid_lbl, *s_water_lbl;
 static lv_obj_t *s_exh_lbl;
 static lv_timer_t *s_arm_timer;
 // Alarms
@@ -482,8 +483,9 @@ static void fire_cb(lv_event_t *) {
         toast("Tap Arm first");
         return;
     }
-    if (grbl::status().door_pin) {
-        toast("Door input open");
+    grbl::Status st = grbl::status();
+    if (st.hold_pin || st.probe_pin || st.door_pin) {
+        toast("Interlock open - check lid and water");
         return;
     }
     // M3 fires even when stationary in laser mode; G4 holds it, M5 ends it
@@ -547,10 +549,14 @@ static void build_laser() {
 
     lv_obj_t *il = card(c);
     label(il, "Interlocks", &lv_font_montserrat_14, COL_SUB);
-    lv_obj_t *door = box(il, LV_FLEX_FLOW_ROW, 0);
-    lv_obj_set_flex_align(door, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-    label(door, "Door input", &lv_font_montserrat_20, COL_TEXT);
-    s_door_lbl = label(door, "Clear", &lv_font_montserrat_20, COL_GREEN);
+    lv_obj_t *lid = box(il, LV_FLEX_FLOW_ROW, 0);
+    lv_obj_set_flex_align(lid, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    label(lid, "Lid", &lv_font_montserrat_20, COL_TEXT);
+    s_lid_lbl = label(lid, "--", &lv_font_montserrat_20, COL_SUB);
+    lv_obj_t *water = box(il, LV_FLEX_FLOW_ROW, 0);
+    lv_obj_set_flex_align(water, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    label(water, "Water flow", &lv_font_montserrat_20, COL_TEXT);
+    s_water_lbl = label(water, "--", &lv_font_montserrat_20, COL_SUB);
     lv_obj_t *arm = box(il, LV_FLEX_FLOW_ROW, 0);
     lv_obj_set_flex_align(arm, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
     label(arm, "Test fire", &lv_font_montserrat_20, COL_TEXT);
@@ -700,8 +706,20 @@ static void refresh(lv_timer_t *) {
     }
 
     // Laser
-    lv_label_set_text(s_door_lbl, st.door_pin ? "Open" : "Clear");
-    lv_obj_set_style_text_color(s_door_lbl, C(st.door_pin ? COL_RED : COL_GREEN), 0);
+    // Interlock loop: PSU P -- lid -- node -- water -- G, tapped by diodes:
+    //   PWR-DET (Pn:H) high = whole loop open, PROBE (Pn:P) high = water switch open.
+    // With water open the lid state can't be told apart, so it shows "--".
+    bool water_ok = !st.probe_pin;
+    const char *lid_txt = !st.hold_pin ? "Closed" : (water_ok ? "Open" : "--");
+    uint32_t lid_col = !st.hold_pin ? COL_GREEN : (water_ok ? COL_RED : COL_SUB);
+    if (!st.link_ok) {
+        lid_txt = "--";
+        lid_col = COL_SUB;
+    }
+    lv_label_set_text(s_lid_lbl, lid_txt);
+    lv_obj_set_style_text_color(s_lid_lbl, C(lid_col), 0);
+    lv_label_set_text(s_water_lbl, !st.link_ok ? "--" : (water_ok ? "Flowing" : "No flow"));
+    lv_obj_set_style_text_color(s_water_lbl, C(!st.link_ok ? COL_SUB : (water_ok ? COL_GREEN : COL_RED)), 0);
     if (st.job_active && s_armed) arm_set(false);
     if (st.job_active && s_ptr_on) {
         s_ptr_on = false;  // LightBurn owns the laser now; don't send M5 into its stream

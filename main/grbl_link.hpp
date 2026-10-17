@@ -28,7 +28,9 @@ struct Status {
     float spindle = 0;  // S value
     int ov_feed = 100, ov_rapid = 100, ov_spindle = 100;
     bool flood = false, mist = false, spindle_on = false;
-    bool door_pin = false;  // Pn:D
+    bool door_pin = false;   // Pn:D
+    bool hold_pin = false;   // Pn:H  PWR-DET: lid+water interlock loop open
+    bool probe_pin = false;  // Pn:P  PROBE: water flow switch open
     int alarm = 0;          // ALARM:n while in Alarm state
     bool host_connected = false;
     bool job_active = false;

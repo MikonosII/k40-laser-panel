@@ -27,6 +27,33 @@ from the SKR's 5V. Power the panel from its USB-C port with a 5V/2A+ supply, or 
 Both sides are 3.3 V logic. Flash grblHAL with the **UART** build (`BTT_SKR_MINI_E3_V30`) so its
 serial port is the TFT header.
 
+## Lid and water status (optional)
+
+The lid and water-flow switches stay in series on the laser PSU's **P–G** pins, so the PSU still
+cuts the beam by itself. The SKR only listens, through two Schottky diodes (1N5819 or BAT85).
+The diodes also keep the PSU's 5V out of the SKR's 3.3V inputs.
+
+```
+PSU P ──┬── lid switch ──┬── water flow switch ── PSU G (= SKR GND)
+        │                │
+       ─┴─ (band)       ─┴─ (band)
+        ▲                ▲
+   SKR PWR-DET       SKR PROBE
+```
+
+- Diode **band (cathode) toward the PSU side**; plain end to the SKR signal pin.
+- SKR GND must already be tied to PSU G (it is, for the PWM wiring).
+
+grblHAL settings:
+
+| Setting | Change | Result |
+|---|---|---|
+| `$14` | add **2** (feed hold invert) | Loop open → feed hold: a running job pauses (`Pn:H`) |
+| `$6` | `1` (probe invert) | Water switch open → `Pn:P` |
+
+The Laser screen then shows **Lid** and **Water flow**, and test fire is refused while either is
+open. With the water switch open, the lid state can't be told apart, so Lid shows `--`.
+
 ## grblHAL settings this firmware assumes
 
 | Setting | Value | Why |
@@ -35,7 +62,7 @@ serial port is the TFT header.
 | `$30` | `1000` | Max S (must match *Spindle max* in menuconfig) |
 | `$31` | `0` | Min S |
 | Coolant flood | air assist | Panel's Air button toggles flood (realtime `0xA0`) |
-| Door input (optional) | lid switch | Shown on the Laser screen; blocks test fire |
+| `$14`, `$6` (optional) | see above | Lid / water status on the Laser screen |
 
 ## Build and flash
 
@@ -67,8 +94,8 @@ network can drive the laser. Never port-forward it.
 - **Jog, Home, Set origin, test fire, pointer** send G-code lines, so they're only allowed when
   no job is running and LightBurn has nothing in flight. Replies to the panel's lines are
   swallowed so LightBurn's stream never gets an unexpected `ok`.
-- **Test fire** needs *Arm* first (auto-disarms after one pulse or 60 s), refuses if the door
-  input is open, and is capped at *Panel test/pointer power cap*.
+- **Test fire** needs *Arm* first (auto-disarms after one pulse or 60 s), refuses if the lid or
+  water interlock is open, and is capped at *Panel test/pointer power cap*.
 - **Pointer** auto-switches off after 30 s.
 - A new alarm jumps to the Alarms screen with a plain-English explanation.
 

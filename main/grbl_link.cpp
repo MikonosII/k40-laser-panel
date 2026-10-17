@@ -167,6 +167,8 @@ static void parse_status_locked(const std::string &line) {
         } else if (f.rfind("Pn:", 0) == 0) {
             have_pins = true;
             s_st.door_pin = f.find('D', 3) != std::string::npos;
+            s_st.hold_pin = f.find('H', 3) != std::string::npos;
+            s_st.probe_pin = f.find('P', 3) != std::string::npos;
         }
         if (bar == std::string::npos) break;
         start = bar + 1;
@@ -174,7 +176,7 @@ static void parse_status_locked(const std::string &line) {
     }
     // grbl omits A: and Pn: when nothing is active
     if (!have_acc) s_st.spindle_on = s_st.flood = s_st.mist = false;
-    if (!have_pins) s_st.door_pin = false;
+    if (!have_pins) s_st.door_pin = s_st.hold_pin = s_st.probe_pin = false;
     for (int i = 0; i < 3; ++i) {
         if (have_m) {
             s_st.mpos[i] = m[i];
