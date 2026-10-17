@@ -69,7 +69,8 @@ Full netlist (checked against the board file):
    the scarce, pricey part (about $15). If JLC is out, choose **Global Sourcing** or pre-order
    it into your JLC parts library.
 5. On the placement preview, check the **pin-1 dots on U1 and U2** line up with the dot on the
-   silkscreen. Rotate a part in the preview if JLC's footprint lands off by 90° or 180°.
+   silkscreen. The CPL already includes the 90° turn U1 needs in JLC's preview; rotate a part
+   there only if it still lands off.
 6. Order. Expect roughly $50–70 before shipping for 5 bare boards with 2 assembled. Most of that
    is the two ADM3260s and JLC's $3-per-line fee for extended parts.
 

@@ -32,6 +32,10 @@ with open(os.path.join(FAB, 'k40-current-sensor-bom.csv'), 'w', newline='') as f
     for (val, name, lcsc), refs in groups.items():
         w.writerow([val, ','.join(sorted(refs, key=lambda r: (r.rstrip('0123456789'), int(''.join(c for c in r if c.isdigit()))))), name, lcsc])
 
+# JLC's footprint for these parts is turned relative to KiCad's; values found in JLC's
+# placement preview (positive = counter-clockwise, so -90 = one turn to the right)
+JLC_ROT_FIX = {'U1': -90}
+
 b = pcbnew.LoadBoard(PCB)
 with open(os.path.join(FAB, 'k40-current-sensor-cpl.csv'), 'w', newline='') as f:
     w = csv.writer(f); w.writerow(['Designator', 'Mid X', 'Mid Y', 'Layer', 'Rotation'])
@@ -43,5 +47,6 @@ with open(os.path.join(FAB, 'k40-current-sensor-cpl.csv'), 'w', newline='') as f
         pos = fp.GetPosition()
         x = pcbnew.ToMM(pos.x) - ORIGIN[0]
         y = BOARD_H - (pcbnew.ToMM(pos.y) - ORIGIN[1])
-        w.writerow([r, f'{x:.3f}mm', f'{y:.3f}mm', 'Top', f'{fp.GetOrientationDegrees() % 360:.0f}'])
+        rot = (fp.GetOrientationDegrees() + JLC_ROT_FIX.get(r, 0)) % 360
+        w.writerow([r, f'{x:.3f}mm', f'{y:.3f}mm', 'Top', f'{rot:.0f}'])
 print('wrote', os.listdir(FAB))
