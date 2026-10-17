@@ -109,6 +109,24 @@ Notes:
 - LCSC numbers were checked in October 2026; stock changes, so swap in an equivalent if a line
   shows out of stock.
 
+## Build it yourself (Digi-Key or Arrow parts)
+
+Cheaper than JLC assembly if you're OK hand-soldering fine-pitch SMT.
+
+1. **Bare boards:** upload `fab/k40-current-sensor-gerbers.zip` to JLCPCB with **assembly off**
+   (about $2–5 for 5 boards plus shipping), or to OSH Park (about $22 for 3, shipped in the US).
+2. **Parts:** upload **`bom-digikey-arrow.csv`** to Digi-Key's BOM Manager (myLists → Upload) or
+   Arrow's BOM tool. It's keyed by manufacturer part number, so both sites match it. Quantities are
+   for **2 boards**, with 10 of each small resistor and capacitor because they're easy to lose.
+   Expect roughly $45–60 total; most of that is the two ADM3260s (about $13–16 each).
+3. **Solder order:** U1 and U2 first (flux, tack one corner pin, check alignment, drag-solder,
+   then wick off bridges), then the 0603/0805 parts, R1, D1, GDT1, and the terminals last.
+   U1's pins are 0.5 mm apart, so use plenty of flux and a magnifier.
+4. **Check before connecting the panel:** power J2 with 5 V only, and measure about 4.9 V between
+   C4's two pads (isolated side). Then connect J1 and look for *Current sensor connected* on Setup.
+
+GDT1 here is the Yageo 4532-231-LF (230 V); any 1812-size GDT from 150 to 250 V fits the same pads.
+
 ## Install
 
 - Mount on nylon standoffs, away from the HV lead, with the **TUBE SIDE** toward the laser PSU.

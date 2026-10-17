@@ -1,0 +1,15 @@
+Quantity,Manufacturer Part Number,Manufacturer,Description,Customer Reference,Qty per board
+2,INA226AIDGSR,Texas Instruments,"Current/power monitor, I2C, VSSOP-10",U1,1
+2,ADM3260ARSZ,Analog Devices,"Isolated I2C + isoPower, SSOP-20",U2,1
+10,RL1206FR-070R1L,YAGEO,0.1 ohm 1% 1206 current sense,R1,1
+10,RC0603FR-0710RL,YAGEO,10 ohm 1% 0603,"R2,R3",2
+10,RC0603FR-0730KL,YAGEO,30k 1% 0603,R4,1
+10,RC0603FR-0710KL,YAGEO,10k 1% 0603,R5,1
+10,RC0603FR-074K7L,YAGEO,4.7k 1% 0603,"R6,R7,R8,R9",4
+10,CL21A106KAYNNNE,Samsung,10uF 25V X5R 0805,"C1,C4",2
+12,CL10B104KB8NNNC,Samsung,100nF 50V X7R 0603,"C2,C3,C5,C6,C7,C8",6
+2,SMAJ5.0CA,Littelfuse,"TVS bidirectional 5V, SMA",D1,1
+2,4532-231-LF,YAGEO,"Gas discharge tube 230V, 1812 (4532)",GDT1,1
+2,1984633,Phoenix Contact,"Terminal block 4-pos 3.5mm (PT 1,5/4-3,5-H)",J1,1
+2,1984617,Phoenix Contact,"Terminal block 2-pos 3.5mm (PT 1,5/2-3,5-H)",J2,1
+2,1715734,Phoenix Contact,"Terminal block 3-pos 5.08mm (MKDS 1,5/3-5,08)",J3,1
