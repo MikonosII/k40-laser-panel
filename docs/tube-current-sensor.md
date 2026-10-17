@@ -25,17 +25,17 @@ is the fewest-parts way to do it.
 
 | # | Part | Qty | Example / notes | Approx. |
 |---|---|---|---|---|
-| 1 | **INA226 current sensor breakout** | 1 | "CJMCU-226" / generic INA226 module with **0.1 Ω (R100)** shunt, I2C address 0x40 | $5 |
-| 2 | **I2C isolator with isolated power** | 1 | MikroE **I2C Isolator 2 Click** (ADM3260: 2.5 kV rms barrier, built-in isolated supply for the sensor side) | $24 |
-| 3 | Gas discharge tube (GDT), 2-electrode, **230 V** | 1 | e.g. Bourns 2027-series 230 V, Littelfuse CG2 230 V. Clamps arcs on the return wire to earth | $2 |
-| 4 | Bidirectional TVS diode, **6.8 V**, through-hole | 1 | **P6KE6.8CA** (or SMAJ5.0CA if you're soldering SMD). Across the shunt | $1 |
-| 5 | 2-position screw terminal, 5.08 mm | 1 | Return wire **IN** and **OUT** | $1 |
-| 6 | Grove / HY2.0 **4-pin** cable, 2.0 mm, ~30 cm | 1 | Plugs into the panel's **I2C-OUT** header (HY2.0-4P) | $2 |
-| 7 | Small ABS project box | 1 | ~60 × 40 × 25 mm (e.g. Hammond 1551-series) | $4 |
+| 1 | **INA226 current sensor breakout** | 1 | [Maker Portal INA226 module](https://makersportal.com/shop/ina226-voltage-and-current-module-for-arduino) or [Universal-Solder INA226](https://www.universal-solder.ca/product/ina226-current-sensor-module-with-ina226aidgsr-high-precision/); any "CJMCU-226" with a **0.1 Ω (R100)** shunt, address 0x40 | $5 |
+| 2 | **I2C isolator with isolated power** | 1 | [MikroE I2C Isolator 2 Click (MIKROE-2609)](https://www.mikroe.com/i2c-isolator-2-click) — ADM3260, 2.5 kV rms, built-in isolated supply | $24 |
+| 3 | Gas discharge tube (GDT), 2-electrode, **230 V** | 1 | [Bourns 2027-23-C](https://www.digikey.com/en/products/detail/bourns-inc/2027-23-C/1219557). Clamps arcs on the return wire to earth | $2 |
+| 4 | Bidirectional TVS diode, **6.8 V**, through-hole | 1 | [Littelfuse P6KE6.8CA](https://www.digikey.com/en/products/detail/littelfuse-inc/P6KE6-8CA/285916). Across the shunt | $1 |
+| 5 | 2-position screw terminal, 5.08 mm | 1 | [Phoenix Contact 1729128](https://www.digikey.com/en/products/detail/phoenix-contact/1729128/260615) — return wire **IN** and **OUT** | $1 |
+| 6 | Grove / HY2.0 **4-pin** cable, 2.0 mm | 1 | [Seeed Grove 4-pin 20 cm (5-pack)](https://www.robotshop.com/en/grove-4-pin-buckled-20cm-cable.html) — plugs into the panel's **I2C-OUT**; cut the other end and solder to the isolator | $4 |
+| 7 | Small ABS project box | 1 | [Hammond 1551KBK](https://octopart.com/part/hammond/1551KBK) (80 × 40 × 20 mm) | $4 |
 | 8 | Hook-up wire, 22 AWG | – | Internal wiring | – |
 | 9 | Earth lead with ring terminal | 1 | GDT to chassis earth screw | – |
 
-**Total: about $40.** Keep the K40's analog mA meter in series too (recommended), as a
+**Total: about $45.** Keep the K40's analog mA meter in series too (recommended), as a
 backup that needs no electronics.
 
 ## Wiring
