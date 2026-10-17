@@ -57,7 +57,8 @@ fire is refused while either is open.
 
 An INA226 current sensor in the tube's return wire, behind an I2C isolator, lets the panel show
 real tube current (mA), warn above one limit and shut the laser off above another. Parts list, wiring and safety notes:
-**[docs/tube-current-sensor.md](docs/tube-current-sensor.md)**.
+**[docs/tube-current-sensor.md](docs/tube-current-sensor.md)**. A single assembled PCB version,
+ready to order from JLCPCB, is in **[hardware/current-sensor-pcb](hardware/current-sensor-pcb/README.md)**.
 
 ## grblHAL settings this firmware assumes
 

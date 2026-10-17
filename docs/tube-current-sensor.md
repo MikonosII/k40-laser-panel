@@ -8,6 +8,10 @@ It's one small box, built from two breakout boards plus protection parts, with o
 panel. No off-the-shelf part combines mA sensing, high-voltage isolation and I2C output, so this
 is the fewest-parts way to do it.
 
+**Prefer one board?** [hardware/current-sensor-pcb](../hardware/current-sensor-pcb/README.md) has
+a single SMT PCB with the same circuit, ready to order assembled from JLCPCB. It needs a 5 V
+feed in addition to the panel cable.
+
 ```
  tube cathode (-) ──►[IN]┐                                     ┌─────────── panel I2C-OUT
                          │  ┌─ GDT ─► chassis earth            │  (3V3, SDA, SCL, GND)
