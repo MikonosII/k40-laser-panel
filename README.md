@@ -274,6 +274,12 @@ LightBurn can't send a file to a GRBL controller, so this uses LightBurn's **Sav
 they're held in memory (up to 20 MB) and lost at restart. The panel checks for a card every few
 seconds while the Jobs screen is open, so you can insert one at any time.
 
+**Preview:** picking a job draws its laser path (brighter = more power) as a thumbnail on the
+Jobs screen and full-size on the Status screen, with a red dot showing where the head is right
+now. Travel moves aren't drawn. Big photo engravings take a few seconds to draw. With no job
+picked, the Status screen shows the 300 x 200 mm bed instead. The picture uses Y up, like
+LightBurn's default view.
+
 **While a panel job runs:**
 - The panel feeds grblHAL itself, so a Wi-Fi drop or a sleeping PC doesn't affect the job.
 - **Pause / Resume / Stop** work from the Jobs or Status screen. Stop soft-resets grblHAL (laser

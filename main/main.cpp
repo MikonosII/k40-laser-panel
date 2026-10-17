@@ -6,6 +6,7 @@
 #include "jobs.hpp"
 #include "ma_sensor.hpp"
 #include "net_bridge.hpp"
+#include "preview.hpp"
 #include "sd_update.hpp"
 #include "settings.hpp"
 #include "nvs_flash.h"
@@ -26,6 +27,7 @@ extern "C" void app_main(void) {
     grbl::init();
     ma_sensor::init();  // optional tube-current sensor on I2C-OUT
 
+    preview::init();  // before the UI, which shows its image
     display::lock();
     ui::build();
     display::unlock();

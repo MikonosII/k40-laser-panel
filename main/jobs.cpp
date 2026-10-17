@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
+#include <functional>
 #include <mutex>
 
 #include "driver/sdmmc_host.h"
@@ -51,6 +52,7 @@ static uint32_t s_last_try_ms = 0;
 static std::vector<RamJob> s_ram;
 static uint32_t s_rev = 1;
 static bool s_uploading = false;
+static std::string s_reading;  // job the preview is reading (can't be deleted/replaced meanwhile)
 
 static Progress s_prog;
 static uint32_t s_start_ms = 0;
@@ -195,6 +197,7 @@ uint32_t revision() {
 bool remove(const std::string &name) {
     std::lock_guard<std::recursive_mutex> g(s_mx);
     if (s_prog.state == RunState::Running && s_prog.name == name) return false;
+    if (s_reading == name) return false;
     for (size_t i = 0; i < s_ram.size(); ++i) {
         if (s_ram[i].name == name) {
             heap_caps_free(s_ram[i].data);
@@ -222,6 +225,10 @@ Upload *upload_begin(const std::string &raw_name, uint32_t size, std::string &er
     std::string name = clean_name(raw_name);
     if (s_prog.state == RunState::Running && s_prog.name == name) {
         err = "That job is running - stop it or rename the file";
+        return nullptr;
+    }
+    if (s_reading == name) {
+        err = "The panel is drawing that job's preview - try again in a moment";
         return nullptr;
     }
     if (si.sd && !s_card) si.sd = false;  // pulled out in between
@@ -288,6 +295,42 @@ bool upload_end(Upload *u, bool keep) {
     s_uploading = false;
     ESP_LOGI(TAG, "upload %s %s (%s)", u->name.c_str(), ok ? "saved" : "dropped", u->sd ? "SD" : "memory");
     delete u;
+    return ok;
+}
+
+// ---- reading a job (preview) ---------------------------------------------------------------
+
+bool read_job(const std::string &name, const std::function<bool(const char *, size_t)> &fn) {
+    const uint8_t *ram = nullptr;
+    uint32_t ram_size = 0;
+    std::string path;
+    {
+        std::lock_guard<std::recursive_mutex> g(s_mx);
+        if (!s_reading.empty()) return false;
+        if (RamJob *j = ram_find_locked(name)) {
+            ram = j->data;
+            ram_size = j->size;
+        } else if (s_card) {
+            path = path_of(name);
+        } else {
+            return false;
+        }
+        s_reading = name;
+    }
+    bool ok = true;
+    if (ram) {
+        for (uint32_t pos = 0; ok && pos < ram_size; pos += 4096)
+            ok = fn((const char *)ram + pos, std::min<uint32_t>(4096, ram_size - pos));
+    } else if (FILE *f = fopen(path.c_str(), "rb")) {
+        static char buf[4096];
+        size_t n;
+        while (ok && (n = fread(buf, 1, sizeof(buf), f)) > 0) ok = fn(buf, n);
+        fclose(f);
+    } else {
+        ok = false;
+    }
+    std::lock_guard<std::recursive_mutex> g(s_mx);
+    s_reading.clear();
     return ok;
 }
 

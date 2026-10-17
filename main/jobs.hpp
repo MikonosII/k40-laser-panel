@@ -7,6 +7,7 @@
 #pragma once
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -40,6 +41,10 @@ StorageInfo storage();  // checks for a newly inserted card at most every few se
 std::vector<Info> list();
 uint32_t revision();  // changes whenever the list does
 bool remove(const std::string &name);
+
+// Feed a stored job to fn in chunks (for the preview). fn returns false to stop early.
+// One reader at a time; the job can't be deleted or replaced while it's being read.
+bool read_job(const std::string &name, const std::function<bool(const char *, size_t)> &fn);
 
 // Uploads (one at a time). Names are cleaned to letters, digits, space . - _ ( )
 struct Upload;

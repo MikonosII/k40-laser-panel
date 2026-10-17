@@ -17,6 +17,7 @@
 #include "ma_sensor.hpp"
 #include "lvgl.h"
 #include "net_bridge.hpp"
+#include "preview.hpp"
 #include "sdkconfig.h"
 #include "settings.hpp"
 
@@ -59,6 +60,8 @@ static lv_timer_t *s_toast_timer;
 // Status
 static lv_obj_t *s_job_time, *s_job_sub, *s_speed, *s_power, *s_work, *s_sval;
 static lv_obj_t *s_feed_ov, *s_pwr_ov, *s_air_lbl[2], *s_air_btn[2];
+static lv_obj_t *s_prev_img, *s_head, *s_prev_msg;  // job preview + live head marker
+static uint32_t s_prev_rev = 0;
 // Jog
 static const float STEPS[] = {0.1f, 1.f, 10.f, 50.f};
 static const int SPEEDS[] = {1000, 3000, 6000};
@@ -76,7 +79,7 @@ static lv_obj_t *s_exh_lbl;
 static lv_timer_t *s_arm_timer;
 // Jobs
 static lv_obj_t *s_jobs_store, *s_jobs_url, *s_jobs_list, *s_run_name, *s_run_bar, *s_run_info;
-static lv_obj_t *s_del_lbl;
+static lv_obj_t *s_del_lbl, *s_thumb, *s_thumb_msg;
 static std::string s_sel_job;
 static uint32_t s_jobs_rev = 0, s_del_armed = 0;
 static jobs::RunState s_last_run = jobs::RunState::Idle;
@@ -429,15 +432,31 @@ static void build_status() {
     lv_obj_t *scr = make_screen(SCR_STATUS);
     lv_obj_t *c = make_content(scr);
 
-    lv_obj_t *job = card(c);
-    lv_obj_set_flex_flow(job, LV_FLEX_FLOW_ROW);
-    lv_obj_set_style_pad_all(job, 16, 0);
-    lv_obj_set_flex_align(job, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-    lv_obj_t *jl = box(job, LV_FLEX_FLOW_COLUMN, 4);
-    lv_obj_set_width(jl, LV_SIZE_CONTENT);
-    label(jl, "Job time", &lv_font_montserrat_14, COL_SUB);
-    s_job_sub = label(jl, "Ready", &lv_font_montserrat_14, COL_SUB);
-    s_job_time = label(job, "00:00", &lv_font_montserrat_40, COL_TEXT);
+    // Job preview: the file's laser path, with the head's live position on top
+    lv_obj_t *pc = card(c);
+    lv_obj_set_style_pad_all(pc, 12, 0);
+    lv_obj_set_style_pad_row(pc, 8, 0);
+    lv_obj_set_flex_align(pc, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_t *top = box(pc, LV_FLEX_FLOW_ROW, 8);
+    lv_obj_set_flex_align(top, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    s_job_sub = label(top, "Ready", &lv_font_montserrat_16, COL_SOFT);
+    lv_label_set_long_mode(s_job_sub, LV_LABEL_LONG_DOT);
+    lv_obj_set_width(s_job_sub, 300);
+    s_job_time = label(top, "00:00", &lv_font_montserrat_24, COL_TEXT);
+    s_prev_img = lv_image_create(pc);
+    if (preview::image()) lv_image_set_src(s_prev_img, preview::image());
+    lv_obj_set_size(s_prev_img, preview::W, preview::H);
+    s_prev_msg = label(s_prev_img, "", &lv_font_montserrat_14, COL_SUB);
+    lv_obj_align(s_prev_msg, LV_ALIGN_BOTTOM_LEFT, 6, -4);
+    s_head = lv_obj_create(s_prev_img);
+    lv_obj_remove_style_all(s_head);
+    lv_obj_set_size(s_head, 14, 14);
+    lv_obj_set_style_radius(s_head, 7, 0);
+    lv_obj_set_style_bg_color(s_head, C(0xFF4D4D), 0);
+    lv_obj_set_style_bg_opa(s_head, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_color(s_head, C(0xFFFFFF), 0);
+    lv_obj_set_style_border_width(s_head, 2, 0);
+    lv_obj_add_flag(s_head, LV_OBJ_FLAG_HIDDEN);
 
     lv_obj_t *live = card(c);
     lv_obj_set_flex_flow(live, LV_FLEX_FLOW_ROW);
@@ -452,32 +471,32 @@ static void build_status() {
     s_power = label(rc, "0 %", &lv_font_montserrat_28, COL_AMBER);
     s_sval = label(rc, "S0", &lv_font_montserrat_14, COL_SUB);
 
-    override_card(c, "Feed override", grbl::rt::FEED_M10, grbl::rt::FEED_RESET, grbl::rt::FEED_P10,
-                  &s_feed_ov, COL_TEXT);
-    override_card(c, "Power override", grbl::rt::SPINDLE_M10, grbl::rt::SPINDLE_RESET,
-                  grbl::rt::SPINDLE_P10, &s_pwr_ov, COL_AMBER);
+    // Feed and power overrides side by side
+    lv_obj_t *ov = box(c, LV_FLEX_FLOW_ROW, 12);
+    lv_obj_t *o1 = override_card(ov, "Feed", grbl::rt::FEED_M10, grbl::rt::FEED_RESET, grbl::rt::FEED_P10,
+                                 &s_feed_ov, COL_TEXT);
+    lv_obj_t *o2 = override_card(ov, "Power", grbl::rt::SPINDLE_M10, grbl::rt::SPINDLE_RESET,
+                                 grbl::rt::SPINDLE_P10, &s_pwr_ov, COL_AMBER);
+    for (lv_obj_t *o : {o1, o2}) {
+        lv_obj_set_width(o, 1);
+        lv_obj_set_flex_grow(o, 1);
+        lv_obj_set_style_pad_hor(o, 10, 0);
+    }
 
-    lv_obj_t *grid = box(c, LV_FLEX_FLOW_COLUMN, 12);
-    lv_obj_set_flex_grow(grid, 1);
-    for (int r = 0; r < 2; ++r) {
-        lv_obj_t *row = box(grid, LV_FLEX_FLOW_ROW, 12);
-        lv_obj_set_flex_grow(row, 1);
-        lv_obj_t *a, *b;
-        if (r == 0) {
-            a = button(row, "Pause", COL_AMBER_BG, COL_AMBER_TX, &lv_font_montserrat_24, rt_cb,
-                       (void *)(intptr_t)grbl::rt::HOLD);
-            b = button(row, "Resume", COL_GREEN_BG, COL_GREEN, &lv_font_montserrat_24, rt_cb,
-                       (void *)(intptr_t)grbl::rt::RESUME);
-        } else {
-            a = button(row, "Stop", COL_RED_BG, COL_RED, &lv_font_montserrat_24, stop_cb);
-            b = button(row, "Air off", COL_CARD, COL_SOFT, &lv_font_montserrat_20, rt_cb,
-                       (void *)(intptr_t)grbl::rt::FLOOD_TOGGLE, COL_EDGE, &s_air_lbl[0]);
-            s_air_btn[0] = b;
-        }
-        for (lv_obj_t *o : {a, b}) {
-            lv_obj_set_height(o, LV_PCT(100));
-            lv_obj_set_flex_grow(o, 1);
-        }
+    lv_obj_t *row = box(c, LV_FLEX_FLOW_ROW, 10);
+    lv_obj_set_flex_grow(row, 1);
+    lv_obj_t *b1 = button(row, "Pause", COL_AMBER_BG, COL_AMBER_TX, &lv_font_montserrat_20, rt_cb,
+                          (void *)(intptr_t)grbl::rt::HOLD);
+    lv_obj_t *b2 = button(row, "Resume", COL_GREEN_BG, COL_GREEN, &lv_font_montserrat_20, rt_cb,
+                          (void *)(intptr_t)grbl::rt::RESUME);
+    lv_obj_t *b3 = button(row, "Stop", COL_RED_BG, COL_RED, &lv_font_montserrat_20, stop_cb);
+    lv_obj_t *b4 = button(row, "Air off", COL_CARD, COL_SOFT, &lv_font_montserrat_20, rt_cb,
+                          (void *)(intptr_t)grbl::rt::FLOOD_TOGGLE, COL_EDGE, &s_air_lbl[0]);
+    s_air_btn[0] = b4;
+    for (lv_obj_t *o : {b1, b2, b3, b4}) {
+        lv_obj_set_height(o, LV_PCT(100));
+        lv_obj_set_width(o, 1);
+        lv_obj_set_flex_grow(o, 1);
     }
     make_nav(scr, SCR_STATUS);
 }
@@ -788,6 +807,10 @@ static void job_item_cb(lv_event_t *e) {
     }
     s_del_armed = 0;
     lv_label_set_text(s_del_lbl, "Delete");
+    if (!jobs::running()) {
+        preview::request(s_sel_job);
+        lv_label_set_text(s_run_name, s_sel_job.c_str());
+    }
 }
 
 static void free_name_cb(lv_event_t *e) {
@@ -815,7 +838,12 @@ static void jobs_rebuild_list() {
         sel_found |= on;
         select_style(b, on);
     }
-    if (!sel_found) s_sel_job.clear();
+    if (!sel_found && !s_sel_job.empty()) {
+        s_sel_job.clear();
+        if (!jobs::running()) preview::request("");  // picked job was deleted
+    } else if (sel_found && !jobs::running()) {
+        preview::request(s_sel_job, true);  // may have been re-uploaded
+    }
     if (list.empty())
         label(s_jobs_list, "No jobs yet. In LightBurn click Save GCode, then upload it from a browser.",
               &lv_font_montserrat_14, COL_SUB);
@@ -868,9 +896,20 @@ static void build_jobs() {
     lv_obj_t *c = make_content(scr);
 
     lv_obj_t *run = card(c);
-    s_run_name = label(run, "No job running", &lv_font_montserrat_20, COL_TEXT);
-    lv_label_set_long_mode(s_run_name, LV_LABEL_LONG_DOT);
+    lv_obj_t *trow = box(run, LV_FLEX_FLOW_ROW, 12);
+    s_thumb = lv_image_create(trow);
+    if (preview::image()) lv_image_set_src(s_thumb, preview::image());
+    lv_obj_set_size(s_thumb, preview::W / 2, preview::H / 2);
+    lv_image_set_inner_align(s_thumb, LV_IMAGE_ALIGN_STRETCH);
+    lv_obj_t *tcol = box(trow, LV_FLEX_FLOW_COLUMN, 6);
+    lv_obj_set_width(tcol, 1);
+    lv_obj_set_flex_grow(tcol, 1);
+    s_run_name = label(tcol, "No job picked", &lv_font_montserrat_20, COL_TEXT);
+    lv_label_set_long_mode(s_run_name, LV_LABEL_LONG_WRAP);
     lv_obj_set_width(s_run_name, LV_PCT(100));
+    s_thumb_msg = label(tcol, "", &lv_font_montserrat_14, COL_SUB);
+    lv_label_set_long_mode(s_thumb_msg, LV_LABEL_LONG_WRAP);
+    lv_obj_set_width(s_thumb_msg, LV_PCT(100));
     s_run_bar = lv_bar_create(run);
     lv_obj_set_size(s_run_bar, LV_PCT(100), 14);
     lv_bar_set_range(s_run_bar, 0, 1000);
@@ -938,6 +977,18 @@ static void refresh_jobs(const net::Info &ni) {
         lv_label_set_text_fmt(s_run_info, "%s - %02u:%02u", p.msg.c_str(), (unsigned)(p.elapsed_s / 60),
                               (unsigned)(p.elapsed_s % 60));
     }
+
+    // A running job is always the one previewed
+    preview::View pv = preview::view();
+    if (p.state == jobs::RunState::Running && pv.name != p.name) preview::request(p.name);
+    if (pv.busy)
+        lv_label_set_text(s_thumb_msg, "Drawing preview...");
+    else if (!pv.msg.empty())
+        lv_label_set_text(s_thumb_msg, pv.msg.c_str());
+    else if (!pv.name.empty())
+        lv_label_set_text_fmt(s_thumb_msg, "%.0f x %.0f mm", pv.size_x, pv.size_y);
+    else
+        lv_label_set_text(s_thumb_msg, "Pick a job to see its path");
 
     if (s_del_armed && lv_tick_get() - s_del_armed > 3000) {
         s_del_armed = 0;
@@ -1520,13 +1571,40 @@ static void refresh(lv_timer_t *) {
                           (unsigned)(st.job_seconds % 60));
     jobs::Progress jp = jobs::progress();
     if (jp.state == jobs::RunState::Running)
-        lv_label_set_text_fmt(s_job_sub, "Panel job %u%%",
-                              (unsigned)(jp.total ? (uint64_t)jp.sent * 100 / jp.total : 0));
+        lv_label_set_text_fmt(s_job_sub, "%u%%  %s",
+                              (unsigned)(jp.total ? (uint64_t)jp.sent * 100 / jp.total : 0), jp.name.c_str());
     else
         lv_label_set_text(s_job_sub, st.job_active      ? "Streaming from LightBurn"
                                      : st.host_connected ? "LightBurn connected"
                                                          : "Ready");
     refresh_jobs(ni);
+
+    // Preview picture changed: drop LVGL's cached copy and redraw both views
+    uint32_t prev_rev = preview::revision();
+    if (prev_rev != s_prev_rev && preview::image()) {
+        s_prev_rev = prev_rev;
+        lv_image_cache_drop(preview::image());
+        lv_obj_invalidate(s_prev_img);
+        lv_obj_invalidate(s_thumb);
+    }
+    if (lv_screen_active() == s_scr[SCR_STATUS]) {
+        preview::View pv = preview::view();
+        int px, py;
+        bool inside = st.link_ok && preview::to_px(pv, st.wpos[0], st.wpos[1], &px, &py);
+        if (inside) {
+            lv_obj_set_pos(s_head, px - 7, py - 7);
+            lv_obj_remove_flag(s_head, LV_OBJ_FLAG_HIDDEN);
+        } else {
+            lv_obj_add_flag(s_head, LV_OBJ_FLAG_HIDDEN);
+        }
+        const char *m = pv.busy                        ? "Drawing preview..."
+                        : !pv.msg.empty()              ? pv.msg.c_str()
+                        : !st.link_ok                  ? ""
+                        : !inside                      ? "Head is outside this view"
+                        : pv.name.empty()              ? "Bed 300 x 200 mm"
+                                                       : "";
+        lv_label_set_text(s_prev_msg, m);
+    }
     lv_label_set_text_fmt(s_speed, "%.0f", st.feed);
     int pct = CONFIG_K40_S_MAX > 0 ? (int)(st.spindle * 100.0f / CONFIG_K40_S_MAX + 0.5f) : 0;
     lv_label_set_text_fmt(s_power, "%d %%", pct);
