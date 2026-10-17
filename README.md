@@ -29,30 +29,26 @@ serial port is the TFT header.
 
 ## Lid and water status (optional)
 
-The lid and water-flow switches stay in series on the laser PSU's **P–G** pins, so the PSU still
-cuts the beam by itself. The SKR only listens, through two Schottky diodes (1N5819 or BAT85).
-The diodes also keep the PSU's 5V out of the SKR's 3.3V inputs.
+The lid and water-flow switches on the laser PSU's **P–G** loop stay exactly as they are, so the
+PSU still cuts the beam by itself. The SKR gets its **own, separate switch contacts**: they never
+touch the PSU circuit, so no diodes or level shifting are needed.
 
-```
-PSU P ──┬── lid switch ──┬── water flow switch ── PSU G (= SKR GND)
-        │                │
-       ─┴─ (band)       ─┴─ (band)
-        ▲                ▲
-   SKR PWR-DET       SKR PROBE
-```
+| Sensor | Add | Wire to SKR |
+|---|---|---|
+| Lid | A second microswitch at the lid (or a 2-circuit switch replacing the stock one) | **PWR-DET** signal ↔ **GND** |
+| Water | A second flow switch in series in the water line | **PROBE** signal ↔ **GND** |
 
-- Diode **band (cathode) toward the PSU side**; plain end to the SKR signal pin.
-- SKR GND must already be tied to PSU G (it is, for the PWM wiring).
+Use normally-open contacts that **close** when the lid is shut / water is flowing.
 
 grblHAL settings:
 
 | Setting | Change | Result |
 |---|---|---|
-| `$14` | add **2** (feed hold invert) | Loop open → feed hold: a running job pauses (`Pn:H`) |
-| `$6` | `1` (probe invert) | Water switch open → `Pn:P` |
+| `$14` | add **2** (feed hold invert) | Lid opens → feed hold: a running job pauses (`Pn:H`) |
+| `$6` | `1` (probe invert) | Water stops → `Pn:P` |
 
-The Laser screen then shows **Lid** and **Water flow**, and test fire is refused while either is
-open. With the water switch open, the lid state can't be told apart, so Lid shows `--`.
+The Laser screen then shows **Lid: Closed/Open** and **Water flow: Flowing/No flow**, and test
+fire is refused while either is open.
 
 ## grblHAL settings this firmware assumes
 

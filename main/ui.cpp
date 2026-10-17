@@ -706,18 +706,12 @@ static void refresh(lv_timer_t *) {
     }
 
     // Laser
-    // Interlock loop: PSU P -- lid -- node -- water -- G, tapped by diodes:
-    //   PWR-DET (Pn:H) high = whole loop open, PROBE (Pn:P) high = water switch open.
-    // With water open the lid state can't be told apart, so it shows "--".
+    // Separate switch contacts wired to the SKR (the PSU interlock loop is untouched):
+    //   lid's 2nd contact -> PWR-DET (Pn:H when open), 2nd flow switch -> PROBE (Pn:P when no flow)
+    bool lid_ok = !st.hold_pin;
     bool water_ok = !st.probe_pin;
-    const char *lid_txt = !st.hold_pin ? "Closed" : (water_ok ? "Open" : "--");
-    uint32_t lid_col = !st.hold_pin ? COL_GREEN : (water_ok ? COL_RED : COL_SUB);
-    if (!st.link_ok) {
-        lid_txt = "--";
-        lid_col = COL_SUB;
-    }
-    lv_label_set_text(s_lid_lbl, lid_txt);
-    lv_obj_set_style_text_color(s_lid_lbl, C(lid_col), 0);
+    lv_label_set_text(s_lid_lbl, !st.link_ok ? "--" : (lid_ok ? "Closed" : "Open"));
+    lv_obj_set_style_text_color(s_lid_lbl, C(!st.link_ok ? COL_SUB : (lid_ok ? COL_GREEN : COL_RED)), 0);
     lv_label_set_text(s_water_lbl, !st.link_ok ? "--" : (water_ok ? "Flowing" : "No flow"));
     lv_obj_set_style_text_color(s_water_lbl, C(!st.link_ok ? COL_SUB : (water_ok ? COL_GREEN : COL_RED)), 0);
     if (st.job_active && s_armed) arm_set(false);
