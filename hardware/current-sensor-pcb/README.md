@@ -130,6 +130,10 @@ Cheaper than JLC assembly if you're OK hand-soldering fine-pitch SMT.
 
 GDT1 here is the Yageo 4532-231-LF (230 V); any 1812-size GDT from 150 to 250 V fits the same pads.
 
+## Enclosure
+
+A 3D-printable two-part box is in [`enclosure/`](enclosure/README.md) (STL files plus the OpenSCAD source).
+
 ## Install
 
 - Mount on nylon standoffs, away from the HV lead, with the **TUBE SIDE** toward the laser PSU.
