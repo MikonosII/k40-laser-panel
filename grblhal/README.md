@@ -21,7 +21,8 @@ Defaults on first boot: laser mode on, S 0-1000, the input polarities in
 
 ## Flash it
 
-1. Copy **`release/grblhal/firmware.bin`** to a FAT32 microSD card (exactly that name).
+1. Copy **`release/grblhal/firmware.bin`** to a FAT32 microSD card of 32 GB or smaller (exactly that name). Step-by-step,
+   including what to do if it won't flash: [docs/install.md](../docs/install.md#1-the-skr).
 2. Put the card in the **SKR's** slot and power the SKR on. Wait about 30 seconds.
 3. The SKR's bootloader flashes it and renames the file to `FIRMWARE.CUR`. That rename is how you
    know it worked.

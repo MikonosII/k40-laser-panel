@@ -55,10 +55,10 @@ Listings change, so check the model before buying. These aren't affiliate links.
 ## Getting started
 
 1. **Wire it:** [docs/wiring.md](docs/wiring.md) has the full diagram plus the laser PSU, lid and water details.
-2. **Flash the SKR** with the ready-made grblHAL in [`grblhal/`](grblhal/README.md) (or
-   [`grblhal/skr3/`](grblhal/skr3/README.md)). Copy the file to the SKR's SD card and power it on.
-3. **Flash the panel** once over USB from your browser, then update from SD after that:
-   [docs/install.md](docs/install.md).
+2. **Flash the SKR and the panel:** [docs/install.md](docs/install.md). Both are ready-made files.
+   The SKR flashes straight from a microSD card. The panel needs one install over USB from your
+   browser, then updates from a microSD card too.
+3. **Power up and check the link:** the panel's header should show *Idle*.
 4. **Set it up on the touchscreen:** Wi-Fi, your LightBurn PC's IP and the power limits.
    See [docs/using.md](docs/using.md).
 5. **Connect LightBurn** as a GRBL device over the network: the panel's IP, port 23.
