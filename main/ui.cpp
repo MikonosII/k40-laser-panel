@@ -958,9 +958,16 @@ static void sleep_sel_cb(lv_event_t *e) {
     for (int i = 0; i < 4; ++i) select_style(s_sleep_btn[i], i == s_sleep_i);
 }
 
+// Orientation applies and saves on tap: no need to press Save, and it works before Wi-Fi is set up
 static void flip_sel_cb(lv_event_t *e) {
     s_flip_i = (int)(intptr_t)lv_event_get_user_data(e);
     for (int i = 0; i < 2; ++i) select_style(s_flip_btn[i], i == s_flip_i);
+    settings::Values v = settings::get();
+    bool flipped = s_flip_i == 1;
+    if (v.flipped == flipped) return;
+    v.flipped = flipped;
+    display::set_flipped(flipped);
+    if (!settings::save(v)) toast("Save failed");
 }
 
 // Two taps within 3 s so the counter can't be cleared by accident

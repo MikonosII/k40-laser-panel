@@ -36,12 +36,12 @@ Settings are saved on the panel and survive firmware updates.
 
 | Setting | Notes |
 |---|---|
-| Wi-Fi name / password | Type it, or tap **Scan** and pick one (2.4 GHz networks only) |
+| Wi-Fi name / password | Type it, or tap **Scan** and pick one (2.4 GHz networks only). Blank leaves Wi-Fi off, and the other settings still save |
 | LightBurn computer | Only this IP may connect. Blank allows any device |
 | Panel power cap | Highest power the panel's own test fire and pointer will use |
 | Brightness | Previews as you drag |
 | Screen sleep | Never / 2 / 5 / 15 min. The first tap only wakes the screen. Never sleeps during a job, hold or alarm |
-| Orientation | **Flipped** turns the screen 180° if it's mounted the other way up |
+| Orientation | **Flipped** turns the screen 180° if it's mounted the other way up. Takes effect and saves as soon as you tap it |
 | PIN lock | 4 digits, asked for when opening Setup or arming test fire. Unlocks both for 5 minutes. Blank turns it off |
 | Laser on-time | Hours the laser has been on (tube wear). **Reset** needs two taps |
 | Tube current warning | 5–30 mA (default 18). Needs the current sensor |

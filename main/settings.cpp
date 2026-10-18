@@ -135,7 +135,7 @@ void tube_reset() {
 }
 
 const char *check_ssid(const std::string &s) {
-    if (s.empty()) return "Enter the Wi-Fi name";
+    if (s.empty()) return nullptr;  // blank = Wi-Fi off (not set up yet)
     if (s.size() > 32) return "Wi-Fi name is too long (32 max)";
     return nullptr;
 }
