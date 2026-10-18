@@ -95,7 +95,8 @@ It merges into `main` once it's been tested on a machine.
 | `main/` | Panel firmware (ESP-IDF 5.5, C++, LVGL 9) |
 | `release/` | Ready-made panel images (`firmware.bin` for SD updates, `k40-panel-full-*.bin` for the first USB install) and grblHAL builds |
 | `grblhal/` | grblHAL build for the SKR Mini E3 V3 (and `skr3/` for the SKR 3), with settings and source build scripts |
-| `hardware/current-sensor-pcb/` | KiCad board, fab files, BOMs |
+| `hardware/current-sensor-pcb/` | KiCad board, fab files, BOMs, printed enclosure |
+| `hardware/lid-stay/` | Printed lid stay that holds the lid at a set angle, for a LightBurn camera |
 | `docs/` | Wiring, install, usage, troubleshooting, current sensor |
 
 ## Credits and license
