@@ -16,6 +16,11 @@ LightBurn ──Wi-Fi──► 5" panel (ESP32-P4) ──serial──► BTT SKR
 > A K40 runs at around 20 kV and can start fires. Unplug it and wait before working inside, never
 > defeat the lid or water interlocks, and never leave it running unattended.
 
+![Panel screens](docs/screens/screens.png)
+
+*Screen designs: Status, Jog, Laser, Alarms, Setup and Jobs. The Jobs screen and the job preview
+on Status are in the [beta branch](#beta-run-jobs-from-the-panel).*
+
 ## What it does
 
 - **Status at a glance:** state, position, speed, laser power, live tube current (mA), job time.
@@ -34,14 +39,18 @@ LightBurn ──Wi-Fi──► 5" panel (ESP32-P4) ──serial──► BTT SKR
 
 ## Hardware
 
-| Part | Notes |
-|---|---|
-| [Elecrow CrowPanel Advanced 5" ESP32-P4](https://www.elecrow.com/) (DHE04005D, 800×480) | Used in portrait. Wi-Fi via its on-board ESP32-C6 |
-| BTT **SKR Mini E3 V3** *or* **SKR 3 (STM32H723)** | Runs grblHAL. The onboard TMC2209 drivers run the K40's steppers |
-| 24 V + 5 V supply, e.g. Mean Well **RD-125B** | 24 V for the SKR, 5 V (2 A or more) for the panel |
-| 1N5819 diode, JST-XH 4-pin lead, hook-up wire | Laser enable and the panel link ([wiring](docs/wiring.md)) |
-| *Optional:* second lid switch, second water-flow switch | Lid and water status on the panel |
-| *Optional:* [tube current sensor](hardware/current-sensor-pcb/README.md) | Live mA readout and over-current shut-off |
+| Part | Where | Notes |
+|---|---|---|
+| Elecrow CrowPanel Advanced 5" **ESP32-P4** (800×480, without camera) | [Amazon](https://www.amazon.com/dp/B0GLGWJP8B) | Used in portrait. Wi-Fi via its on-board ESP32-C6. Get the **P4** model, not the ESP32-S3 "Advance" |
+| BTT **SKR Mini E3 V3** | [Amazon](https://www.amazon.com/dp/B0DFH6HDJ4) | Runs grblHAL. Its TMC2209 drivers run the K40's steppers |
+| *or* BTT **SKR 3** with TMC2209 drivers | [Amazon](https://www.amazon.com/dp/B0CD7SFRGC) | Ships with an STM32H723 or H743 chip. This repo's build is for the **H723**, so check the chip |
+| Mean Well **RD-125B** (24 V + 5 V) | [Amazon](https://www.amazon.com/dp/B005T9JN6E) | 24 V for the SKR, 5 V for the panel |
+| 1N5819 diode | [Amazon](https://www.amazon.com/dp/B079KG1TN2) | Laser enable, see [wiring](docs/wiring.md#laser-psu) |
+| JST-XH 2.54 mm kit with pre-crimped leads | [Amazon](https://www.amazon.com/dp/B08G17QHSD) | Panel UART3-IN plug (4-pin) |
+| *Optional:* second lid switch, second water-flow switch | | Lid and water status on the panel |
+| *Optional:* [tube current sensor](hardware/current-sensor-pcb/README.md) + [Grove cable](https://www.amazon.com/dp/B01CNZ9RJO) | | Live mA readout and over-current shut-off |
+
+Listings change, so check the model before buying. These aren't affiliate links.
 
 ## Getting started
 
