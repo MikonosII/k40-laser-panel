@@ -23,7 +23,7 @@ Panel UART3-IN pin 3 (+5V) still comes from your 5 V supply, not the SKR's TFT +
 
 ## Flash it
 
-1. Copy **`release/grblhal-skr3/firmware.bin`** to a FAT32 microSD card.
+1. Copy **`release/grblhal-skr3/firmware.bin`** to a FAT32 microSD card of 32 GB or smaller. Step-by-step: [docs/install.md](../../docs/install.md#1-the-skr).
 2. Put it in the **SKR 3's** card slot and power on. The bootloader flashes it and renames it
    `FIRMWARE.CUR`.
 3. If the board ran grblHAL before, paste [`../k40-settings.txt`](../k40-settings.txt) in
