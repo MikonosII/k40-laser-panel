@@ -1,94 +1,53 @@
-# Lid stay
+# Magnetic lid stop
 
-![Lid stay](preview.png)
+![Lid stop](preview.png)
 
-*Top: side view with the lid closed and stopped at 95°. Bottom: the stay at 95°, and the three
-printed parts.*
+*Left: side view, with the lid resting on the stop at 95°. Middle: the angled contact face with two
+magnet pockets. Right: the back, with the adjusting slots.*
 
-A printed stay that stops the K40's lid at the same angle every time it's opened. It's meant for a
-lid-mounted LightBurn camera: the camera's lens calibration and alignment only stay valid if the
-camera comes back to the same spot.
+A printed wedge that sits on the top panel just behind the lid's hinge. When you open the lid, its
+outer face leans back flat against the wedge, and two magnets hold the steel lid in place. The lid
+lands at the same angle every time, which is what a lid-mounted LightBurn camera needs to stay
+calibrated.
 
-- **Mounts outside the case**, on the left side wall and the lid's left edge, so nothing is near
-  the gantry, belts or laser head.
-- **Stops just past vertical** (95° by default). The lid's own weight then holds it against the
-  stop, so it settles in the same place without a latch.
-- **Adjustable from 90° to 100°** with an M3 screw in the end of the strut, about 1° per mm.
-- **Folds away when the lid closes.** The strut slides back along its slot and lies against the
-  case side.
+- **Nothing in the cutting area:** it sits on the outside of the machine, behind the lid.
+- **Stops just past vertical** (95°), so the lid's weight leans it onto the stop, and the magnets
+  stop it bouncing forward.
+- **No measuring:** slide it forward or back in its slots until the lid sits where you want it,
+  then fix it down. 1 mm of slide is about 1° of lid angle.
 
-## Parts
+## Print
 
-| File | Print |
-|---|---|
-| [`strut.stl`](strut.stl) | Flat, 185 mm long |
-| [`lid_bracket.stl`](lid_bracket.stl) | As modelled: tab flat on the bed, leg standing up |
-| [`case_bracket.stl`](case_bracket.stl) | Plate down |
+[`lid-stop.stl`](lid-stop.stl): print **two**, base down. PETG, 0.2 mm layers, 4 walls, 25% infill,
+no supports. The angle is printed on top.
 
-PETG, 0.2 mm layers, 4 walls, 30% infill, no supports. On the lid bracket, the bottom of the
-sideways spigot may sag slightly; clean it up with a file or a knife so the strut turns freely.
+**Per stop:**
+- 2 × **10 × 3 mm disc magnets** (N52), glued into the pockets with CA glue. They sit 0.4 mm below
+  the face, so the lid rests on the plastic and the magnets don't get chipped.
+- A strip of **3M VHB tape** (e.g. 5952) under the base, *or* 2 × M4 screws through the slots.
 
-**Hardware:**
-- 2 × M5 × 20 bolts, 2 × M5 nylock nuts, 2 × M5 fender washers (15–20 mm OD)
-- 1 × M3 × 25 screw and 2 × M3 nuts
-- To mount the brackets: 4 × 4 mm (5/32") pop rivets, or M4 bolts with nuts, or #8 sheet-metal
-  screws
+Make the magnet polarity the same in all four pockets. The steel lid doesn't care about polarity,
+but matching magnets are easier to handle.
 
-## Where the brackets go
+## Fit
 
-All measurements are from the centre of the **left hinge's pin**, with the lid closed.
+1. Open the lid as far as it goes, and decide where the stops go: one beside each hinge, on the
+   panel behind the lid, **clear of the hinge leaves**.
+2. Put each stop on the panel with its face toward the lid, and slide it toward the hinge until the
+   lid rests against both faces at the angle you want. The bottom of the face is cut back to clear
+   the hinge knuckle.
+3. Check that the lid sits flat on both faces, close it and open it a few times, and check that it
+   always lands in the same place.
+4. Mark the positions, then fix the stops down with VHB tape (clean the paint with isopropyl
+   alcohol first) or with screws through the slots.
 
-| | Pivot centre | Notes |
-|---|---|---|
-| **Lid bracket** | **80 mm** forward of the hinge pin | The tab sits on the lid's top surface at its left edge, and the leg hangs over the edge. That sets the height automatically (8 mm below the lid top) |
-| **Case bracket** | **110 mm** forward, **40 mm** below the hinge pin | Plate flat on the case's left side wall. Both screws go below the pivot |
-
-Being a few millimetres off just moves the stop angle by a few degrees, and the adjusting screw
-takes that out.
-
-**Does your lid stick out past the case side, or sit inside it?** Measure how far the lid's side
-face is outside the case's side face, set `lid_offset` in [`lid-stay.scad`](lid-stay.scad) to that
-(negative if it's inside), and export the brackets again. That keeps the strut level between the
-two brackets. Flush is 0, the default.
-
-## Assembly
-
-1. **Brackets:** drop an M5 nylock into each bracket's nut slot (the case bracket's slot is on the
-   side of the boss, the lid bracket's is on top).
-2. **Strut:** drop an M3 nut into the slot at the strut's end, then thread in the M3 × 25 screw
-   from the end with the second nut on it as a lock nut.
-3. **Test fit first:** tape the brackets in place, fit the strut over both spigots, and bolt each
-   one with an M5 × 20 and a fender washer. Snug the bolts down onto the spigot tops; the strut
-   should still turn and slide freely. Open and close the lid a few times.
-4. **Look inside before drilling.** The left Y rail and its belt run along the inside of that wall,
-   so use rivets or short sheet-metal screws that stay clear of them. Then mark the holes through
-   the brackets and drill 4.5 mm (5/32" for rivets).
-5. **Fix the brackets** with rivets or screws, and refit the strut.
-
-## Setting the angle
-
-Open the lid fully so it rests on the stay. Turn the M3 screw in to stop the lid sooner, or out to
-let it open further:
-
-| Screw tip into the slot | Lid angle |
-|---|---|
-| 0 mm (backed out) | 100° |
-| 2 mm | 98° |
-| 4 mm | 96° |
-| 6 mm | 94° |
-| 8 mm | 92° |
-
-The marks on the strut's top face are 2 mm apart, measured from the slot's end. Keep it above 90°,
-or the lid won't lean back onto the stop. Lock it with the second nut, then calibrate the camera.
-If you change the angle later, LightBurn's camera alignment needs to be done again.
+**Don't drill into the cover over the laser tube.** The tube and its high-voltage lead are right
+under it. Use VHB tape there; screws are only for a panel with nothing under it.
 
 ## Changing the design
 
-[`lid-stay.scad`](lid-stay.scad) is parametric: the pivot positions (`a`, `b`, `c`, `e`), the stop
-range and `lid_offset` are at the top. The strut length and slot are worked out from those, and
-OpenSCAD's console prints the result. `part = "assembly"` with `open_angle` shows the side view at
-any angle.
-
-The stay mirrors for the right side: the parts are symmetric, so the same prints fit.
+[`lid-stop.scad`](lid-stop.scad) is parametric. `stop_angle` sets the face angle (keep it above 90),
+and `H`, `W`, `D` set the size. If your panel behind the hinge sits well above or below the hinge
+pin, adjust `relief` so the face clears the hinge.
 
 License: CERN-OHL-P-2.0, like the rest of the hardware in this repo.
