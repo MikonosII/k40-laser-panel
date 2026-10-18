@@ -71,8 +71,8 @@ Full netlist (checked against the board file):
 5. On the placement preview, check the **pin-1 dots on U1 and U2** line up with the dot on the
    silkscreen. The CPL already includes the 90° turn U1 needs in JLC's preview; rotate a part
    there only if it still lands off.
-6. Order. Expect roughly $50–70 before shipping for 5 bare boards with 2 assembled. Most of that
-   is the two ADM3260s and JLC's $3-per-line fee for extended parts.
+6. Order. A real order came to about **$123** at JLCPCB. Most of that is the ADM3260s (about
+   $15 each) and JLC's $3-per-line fee for extended parts.
 
 **OSH Park** also takes the same Gerber zip, but it doesn't assemble. You'd hand-solder the
 SSOP-20 and the 0.5 mm-pitch VSSOP-10 yourself.

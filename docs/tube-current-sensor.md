@@ -64,8 +64,12 @@ backup that needs no electronics.
 | SCL | SCL |
 | GND | GND |
 
-Set the isolator board's supply jumper to **3.3 V**. Check the I2C-OUT pin order against the
-silkscreen next to the connector (Elecrow lists it as 3V3, SDA, SCL, GND).
+Set the isolator board's supply jumper to **3.3 V**. The I2C-OUT port uses the Grove order:
+SCL, SDA, 3V3, GND (yellow, white, red, black on a Seeed Grove cable). Check it against the
+silkscreen next to the connector.
+
+The [single-board PCB](../hardware/current-sensor-pcb/README.md) does the same job with more logic-level
+margin: its isolated side runs at 5 V.
 
 **In the laser**
 
