@@ -44,6 +44,7 @@ on Status are in the [beta branch](#beta-run-jobs-from-the-panel).*
 | Elecrow CrowPanel Advanced 5" **ESP32-P4** (800×480, without camera) | [Amazon](https://www.amazon.com/dp/B0GLGWJP8B) | Used in portrait. Wi-Fi via its on-board ESP32-C6. Get the **P4** model, not the ESP32-S3 "Advance" |
 | BTT **SKR Mini E3 V3** | [Amazon](https://www.amazon.com/dp/B0DFH6HDJ4) | Runs grblHAL. Its TMC2209 drivers run the K40's steppers |
 | *or* BTT **SKR 3** with TMC2209 drivers | [Amazon](https://www.amazon.com/dp/B0CD7SFRGC) | Ships with an STM32H723 or H743 chip. This repo's build is for the **H723**, so check the chip |
+| Panel mounting plate (laser-cut, e.g. 3 mm acrylic) | [Cut file](hardware/panel-mount/README.md) | Holds the panel on the K40. A good first job for the upgraded laser |
 | Mean Well **RD-125B** (24 V + 5 V) | [Amazon](https://www.amazon.com/dp/B005T9JN6E) | 24 V for the SKR, 5 V for the panel |
 | 1N5819 diode | [Amazon](https://www.amazon.com/dp/B079KG1TN2) | Laser enable, see [wiring](docs/wiring.md#laser-psu) |
 | JST-XH 2.54 mm kit with pre-crimped leads | [Amazon](https://www.amazon.com/dp/B08G17QHSD) | Panel UART3-IN plug (4-pin) |
