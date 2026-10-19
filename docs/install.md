@@ -71,6 +71,15 @@ With the panel wired to the SKR (see [wiring.md](wiring.md)):
 2. Set up Wi-Fi on the Setup screen and connect LightBurn (GRBL, network, panel IP, port 23).
 3. In LightBurn's Console, run the checks in [grblhal/README.md](../grblhal/README.md#check-it):
    `$I` shows the board name, `$32=1`, and the PWM pin reads right with the Laser switch **off**.
+4. **Home and set the origin.** Send `$H`; the head goes to the back left. Then send
+   `G10 L2 P1 X-315 Y-221` once (it's saved). That puts 0,0 at the front left. Check with
+   `G1 X10 Y10 F1000` (near the front-left corner) and `G1 X300 Y200 F1000` (near the back right).
+5. **In LightBurn:** Device Settings → Origin **front left**, work area **315 × 220**. In the Laser
+   window, Start From **Absolute Coords**. Click **Frame** before every job.
+
+The SKR keeps all of these (and any `$` setting you change) through power-offs and firmware
+updates. To keep a copy, send `$$` and `$#` in LightBurn's Console and save the output.
+If your machine's travel differs, measure it as in [troubleshooting.md](troubleshooting.md).
 
 ## Building the panel firmware from source
 

@@ -25,17 +25,22 @@ $5=4
 ; --- Motion (stock K40: 0.9 degree motors, 20-tooth MXL pulleys, 1/16 microstepping) ---
 $100=157.48
 $101=157.48
-$110=18000
-$111=18000
-$120=2000
-$121=2000
-; Motor current, mA RMS (TMC2209). Raise in steps of 100 if a motor skips; most K40 motors are fine at 600-800.
-$140=600
+; Top speed 100 mm/s. G0 moves and LightBurn's travel moves run at this speed; at 300 mm/s
+; stock K40 motors skip and lose position. Raise in steps of 1000 if yours stay smooth.
+$110=6000
+$111=6000
+$120=1000
+$121=1000
+; Motor current, mA RMS (TMC2209).
+$140=800
 $141=600
+; Keep the motors on between moves. With the grblHAL default (25 ms) they let go after every
+; move and the gantry can be pushed off position.
+$1=255
 
-; --- Work area (stock K40 bed) ---
-$130=300
-$131=200
+; --- Work area (measured on a stock K40, 5 mm short of the right and front frame) ---
+$130=316
+$131=221
 
 ; --- Homing (end stops on X-STOP / Y-STOP) ---
 ; K40 heads home to the back left: X toward 0, Y toward max. X and Y home together, no Z.
@@ -44,3 +49,20 @@ $23=1
 $44=3
 $45=0
 $46=0
+$25=1000
+$27=3
+
+; --- Limits and reporting ---
+; Soft limits stop any move past the work area (needs homing first).
+$20=1
+$40=1
+; Hard limits off: the K40's long end-stop wires pick up noise and trip ALARM:1 mid-move.
+$21=0
+; Report work position (what LightBurn expects with the origin below).
+$10=0
+
+; --- Origin: 0,0 at the front left (send once, after $H; it's saved) ---
+;   $H
+;   G10 L2 P1 X-315 Y-221
+; Then LightBurn: Device Settings > Origin = front left, work area 315 x 220,
+; and Start From = Absolute Coords.
