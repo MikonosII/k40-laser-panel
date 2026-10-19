@@ -10,6 +10,9 @@
 | **No Wi-Fi** | 2.4 GHz networks only. Recheck the name and password on Setup. Update the C6 firmware ([install.md](install.md#wi-fi-coprocessor)) |
 | LightBurn won't connect | Is the IP in the panel header the one LightBurn uses? Is *LightBurn computer* on Setup blank or set to this PC's IP? |
 | Laser screen says *Lid: Open* / *No flow* with no switches fitted | Send `$14=70` and `$6=1`, or fit the switches ([wiring.md](wiring.md#lid-and-water-switches-for-the-panel-optional)) |
+| `?` shows `Pn:Z`, or homing stops with **Alarm 8** | Nothing is wired to Z on a K40. Send `$X`, `$5=4`, `$44=3`, `$45=0`, `$46=0` (the defaults in builds after October 18, 2026) |
+| `?` shows `Pn:X` or `Pn:Y` with the switch not pressed | That end stop reads inverted. Add 1 (X) and/or 2 (Y) to `$5`, e.g. `$5=7` for both plus Z |
+| Homing goes the wrong way | `$23` sets the direction: 1 = X toward 0 and Y toward max (back left). Add or remove 1 for X, 2 for Y |
 | Laser doesn't fire, but the head moves | Front-panel Laser switch on? Lid and water loop closed? Diode the right way round (band toward the SKR)? |
 | Laser fires weakly or the power steps are uneven | Try `$33=2000` to `5000` (PWM frequency) |
 | `$I` doesn't show the SKR's board name | The SKR didn't take the grblHAL file: it must be named exactly `firmware.bin` on a FAT32 card, and gets renamed `FIRMWARE.CUR` when it works |

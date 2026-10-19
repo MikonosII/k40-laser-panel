@@ -54,6 +54,24 @@ have 5 V or the link won't work**.
 
 On the SKR 3, use the **BED −** output (PD7) in place of HB −.
 
+## Motors and end stops
+
+| K40 | SKR Mini E3 V3 | SKR 3 |
+|---|---|---|
+| X motor | **XM** | **X** driver socket |
+| Y motor | **YM** | **Y** driver socket |
+| X end stop | **X-STOP** | **X-STOP** |
+| Y end stop | **Y-STOP** | **Y-STOP** |
+
+- **Mechanical end stops** (2 wires) go between the stop connector's signal pin and GND.
+- **Optical end stops** (a small board, 3 wires) also need 5 V. Take it from the TFT header's 5 V
+  pin if the stop connector doesn't have one; they only draw a few mA.
+- Many K40s run the end stops and the X motor through a **flat ribbon cable**. You'll need a
+  ribbon breakout board to get at those wires.
+- The head homes to the **back left**. Check each switch before the first home: hold it and send
+  `?` in LightBurn's Console. `Pn:X` or `Pn:Y` should appear only while it's pressed. If not, see
+  [troubleshooting](troubleshooting.md).
+
 ## Lid and water switches for the panel (optional)
 
 The stock lid and water switches on the PSU's **P–G** loop stay exactly as they are; they still cut
@@ -67,8 +85,9 @@ contacts and wire them to the SKR:
 
 Use contacts that **close** when the lid is shut and when water is flowing. With the grblHAL build
 in this repo, an open lid pauses a running job (feed hold) and the Laser screen shows *Lid: Open* or
-*No flow*. The settings this relies on are `$14=68` and `$6=0`. Until the switches are fitted, use
-`$14=70` and `$6=1`, or the panel will report the lid open and no water flow.
+*No flow*. Once the switches are fitted, send `$14=68` and `$6=0` from LightBurn's Console. The
+firmware's defaults (`$14=70` and `$6=1`) are for a machine without them, so nothing reads as open
+or dry before they're wired.
 
 ## Tube current sensor (optional)
 

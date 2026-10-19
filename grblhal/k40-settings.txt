@@ -12,14 +12,15 @@ $33=1000
 
 ; --- Inputs ---
 ; E-stop and cycle start are unused, so they're inverted to read "inactive" when nothing is wired.
-; Feed hold (PWR-DET) is NOT inverted: the lid switch closes to GND when the lid is shut,
-; and an open lid (or no switch) reads as feed hold.
-$14=68
-; Water flow switch on PROBE closes to GND while water flows; no flow = Pn:P.
-$6=0
-; Not fitted the lid / water switches yet? Use these instead, or the panel shows Lid Open / No flow:
-;   $14=70
-;   $6=1
+; The defaults assume the optional lid and water switches are NOT fitted yet:
+$14=70
+$6=1
+; Fitted them (both close to GND: lid shut, water flowing)? Then send these, so an open lid
+; pauses the job (feed hold, Pn:H) and no water flow shows as Pn:P:
+;   $14=68
+;   $6=0
+; Nothing is wired to Z-STOP on a K40, and an unconnected input reads as triggered, so Z is inverted:
+$5=4
 
 ; --- Motion (stock K40: 0.9 degree motors, 20-tooth MXL pulleys, 1/16 microstepping) ---
 $100=157.48
@@ -36,7 +37,10 @@ $141=600
 $130=300
 $131=200
 
-; --- Homing (optional, only once the end stops are wired to X-STOP / Y-STOP) ---
-; K40 heads home to the back left: X toward 0, Y toward max.
-;   $22=1
-;   $23=1
+; --- Homing (end stops on X-STOP / Y-STOP) ---
+; K40 heads home to the back left: X toward 0, Y toward max. X and Y home together, no Z.
+$22=1
+$23=1
+$44=3
+$45=0
+$46=0
