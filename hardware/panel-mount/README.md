@@ -9,7 +9,7 @@ is drawn at 1:1 in millimetres, with black 0.2 mm cut lines.
 |---|---|
 | Plate | 140 × 185 mm, 12 mm corner radius |
 | Centre cutout | 74.5 × 120.5 mm, 2 mm corner radius, centred on the plate. Fits the 74 × 120 mm screen glass with 0.25 mm clearance each side |
-| Mounting holes | 4 × Ø5.5 mm (M5 clearance) on a 78 × 165 mm rectangle, centred |
+| Mounting holes | 4 × Ø5.5 mm (M5 clearance) on an 80 × 165 mm rectangle (80 mm side to side), centred |
 
 To cut it in LightBurn: **File → Import** the SVG and check it comes in at 140 × 185 mm. If it
 doesn't, set LightBurn's SVG import to millimetres. Then put the black layer on cut.

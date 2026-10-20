@@ -2,8 +2,8 @@
 <style>.c{fill:none;stroke:#000;stroke-width:.2}.r{fill:none;stroke:#3a7bd5;stroke-width:.2;stroke-dasharray:2 1}.b{fill:none;stroke:#e08a00;stroke-width:.2;stroke-dasharray:1 1}</style>
 <rect class="c" x="-70.0" y="-92.5" width="140" height="185" rx="12"/>
 <rect class="c" x="-37.25" y="-60.25" width="74.5" height="120.5" rx="2"/>
-<circle class="c" cx="-39" cy="-82.5" r="2.75"/>
-<circle class="c" cx="-39" cy="82.5" r="2.75"/>
-<circle class="c" cx="39" cy="-82.5" r="2.75"/>
-<circle class="c" cx="39" cy="82.5" r="2.75"/>
+<circle class="c" cx="-40" cy="-82.5" r="2.75"/>
+<circle class="c" cx="-40" cy="82.5" r="2.75"/>
+<circle class="c" cx="40" cy="-82.5" r="2.75"/>
+<circle class="c" cx="40" cy="82.5" r="2.75"/>
 </svg>
